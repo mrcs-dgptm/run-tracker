@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Sub-40 10K Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif; background: #f5f5f5; min-height: 100vh; padding-bottom: 2rem; }
+    
+    .header { background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); color: white; padding: 1.25rem 1rem; position: sticky; top: 0; z-index: 100; }
+    .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
+    .header h1 { font-size: 1.1rem; font-weight: 600; }
+    .header .date { font-size: 0.75rem; opacity: 0.7; }
+    .header .countdown { text-align: right; }
+    .header .countdown-num { font-size: 1.5rem; font-weight: 700; }
+    .header .countdown-label { font-size: 0.65rem; opacity: 0.7; }
+    .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem; }
+    .stat-box { background: rgba(255,255,255,0.1); padding: 0.4rem; border-radius: 6px; text-align: center; }
+    .stat-box .label { font-size: 0.55rem; opacity: 0.7; }
+    .stat-box .value { font-size: 0.8rem; font-weight: 600; }
+    
+    .nav { display: flex; background: white; border-bottom: 1px solid #eee; position: sticky; top: 108px; z-index: 99; }
+    .nav button { flex: 1; padding: 0.75rem; border: none; background: none; font-size: 0.8rem; color: #666; border-bottom: 2px solid transparent; cursor: pointer; }
+    .nav button.active { color: #1a1a1a; border-bottom-color: #1a1a1a; font-weight: 500; }
+    
+    .content { padding: 0.75rem; }
+    
+    .legend { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem; background: white; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.7rem; }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+    
+    .week-card { background: white; border-radius: 12px; margin-bottom: 0.75rem; overflow: hidden; border: 1px solid #eee; }
+    .week-card.current { border: 2px solid #FFD700; }
+    .week-header { padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .week-header-left { display: flex; align-items: center; gap: 0.75rem; }
+    .week-kw { font-size: 1rem; font-weight: 600; }
+    .week-dates { font-size: 0.75rem; opacity: 0.7; }
+    .week-header-right { display: flex; align-items: center; gap: 0.5rem; }
+    .week-progress { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 10px; background: #f0f0f0; color: #666; }
+    .week-progress.complete { background: #D1FAE5; color: #065F46; }
+    .phase-badge { font-size: 0.65rem; padding: 0.2rem 0.5rem; border-radius: 10px; font-weight: 500; }
+    .week-arrow { font-size: 1.2rem; color: #999; transition: transform 0.2s; }
+    .week-arrow.expanded { transform: rotate(180deg); }
+    
+    .week-body { padding: 0 1rem 1rem; border-top: 1px solid #eee; display: none; }
+    .week-body.expanded { display: block; }
+    .week-summary { display: flex; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.8rem; color: #666; }
+    
+    .session { display: flex; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid #f5f5f5; cursor: pointer; }
+    .session-status { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; }
+    .session-status.pending { background: #F3F4F6; color: #9CA3AF; }
+    .session-status.completed { background: #D1FAE5; color: #065F46; }
+    .session-status.modified { background: #FEF3C7; color: #92400E; }
+    .session-status.skipped { background: #FEE2E2; color: #991B1B; }
+    .session-content { flex: 1; min-width: 0; }
+    .session-type { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
+    .session-planned { font-size: 0.85rem; margin-top: 0.25rem; line-height: 1.4; }
+    .session-logged { font-size: 0.8rem; color: #059669; margin-top: 0.25rem; padding-top: 0.25rem; border-top: 1px dashed #e5e5e5; }
+    .session-notes { color: #666; font-style: italic; }
+    
+    .week-notes { background: #FEFCE8; border-left: 3px solid #EAB308; padding: 0.6rem 0.75rem; border-radius: 0 6px 6px 0; margin-top: 0.75rem; font-size: 0.8rem; }
+    
+    /* Charts Tab */
+    .chart-nav { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .chart-nav button { flex: 1; padding: 0.6rem; border: none; border-radius: 8px; background: white; color: #666; font-size: 0.75rem; font-weight: 500; cursor: pointer; }
+    .chart-nav button.active { background: #1a1a1a; color: white; }
+    .chart-card { background: white; border-radius: 12px; padding: 1rem; margin-bottom: 0.75rem; }
+    .chart-card h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; color: #333; }
+    .chart-card p { font-size: 0.75rem; color: #888; margin-bottom: 1rem; }
+    .chart-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-top: 1rem; }
+    .chart-summary-box { padding: 0.75rem; border-radius: 8px; text-align: center; }
+    .chart-summary-box .label { font-size: 0.7rem; }
+    .chart-summary-box .value { font-size: 1.1rem; font-weight: 600; }
+    .chart-summary-box .sub { font-size: 0.65rem; color: #666; }
+    
+    .volume-chart { display: flex; align-items: flex-end; gap: 3px; height: 150px; padding-bottom: 20px; }
+    .volume-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; }
+    .volume-bar-container { position: relative; width: 100%; height: 120px; display: flex; align-items: flex-end; justify-content: center; }
+    .volume-bar { width: 60%; border-radius: 3px 3px 0 0; }
+    .volume-bar.planned { opacity: 0.4; }
+    .volume-bar.actual { position: absolute; bottom: 0; }
+    .volume-label { font-size: 6px; color: #999; margin-top: 4px; }
+    .volume-legend { display: flex; justify-content: center; gap: 1rem; margin-top: 0.5rem; font-size: 0.7rem; }
+    .volume-legend-item { display: flex; align-items: center; gap: 4px; }
+    .volume-legend-box { width: 12px; height: 12px; border-radius: 2px; }
+    
+    .volume-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 1rem; }
+    .volume-stat { background: #f9f9f9; padding: 0.6rem; border-radius: 8px; text-align: center; }
+    .volume-stat .label { font-size: 0.65rem; color: #888; }
+    .volume-stat .value { font-size: 1rem; font-weight: 600; }
+    
+    .actual-empty { text-align: center; padding: 2rem; color: #888; }
+    .actual-empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+    .actual-section { margin-bottom: 1rem; }
+    .actual-section-title { font-size: 0.8rem; font-weight: 500; margin-bottom: 0.5rem; }
+    .actual-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0; }
+    .actual-kw { font-size: 0.75rem; width: 40px; }
+    .actual-bar { flex: 1; height: 6px; background: #f0f0f0; border-radius: 3px; position: relative; }
+    .actual-bar-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 3px; }
+    .actual-pace { font-size: 0.8rem; font-weight: 500; }
+    
+    .phase-legend { background: white; border-radius: 12px; padding: 1rem; margin-top: 0.75rem; }
+    .phase-legend-title { font-size: 0.75rem; font-weight: 500; margin-bottom: 0.5rem; color: #666; }
+    .phase-legend-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+    .phase-legend-item { display: flex; align-items: center; gap: 4px; }
+    .phase-legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+    .phase-legend-name { font-size: 0.65rem; color: #666; }
+    
+    /* Stats Tab */
+    .stats-card { background: white; border-radius: 12px; padding: 1rem; margin-bottom: 0.75rem; }
+    .stats-card h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: #333; }
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+    .stats-item { background: #f9f9f9; padding: 0.75rem; border-radius: 8px; }
+    .stats-item .label { font-size: 0.7rem; color: #888; }
+    .stats-item .value { font-size: 1.25rem; font-weight: 600; }
+    .stats-item .sub { font-size: 0.65rem; color: #aaa; }
+    
+    .weekly-breakdown { }
+    .breakdown-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0; }
+    .breakdown-kw { font-size: 0.8rem; font-weight: 500; width: 45px; }
+    .breakdown-bar { flex: 1; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+    .breakdown-bar-fill { height: 100%; border-radius: 4px; }
+    .breakdown-count { font-size: 0.75rem; color: #666; width: 35px; }
+    .breakdown-km { font-size: 0.7rem; color: #999; width: 50px; }
+    
+    /* Paces Tab */
+    .paces-card { background: white; border-radius: 12px; padding: 1rem; margin-bottom: 0.75rem; }
+    .paces-card h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: #333; }
+    .paces-card p { font-size: 0.8rem; color: #666; margin-bottom: 1rem; }
+    .pace-input-group { margin-bottom: 1rem; }
+    .pace-input-group label { font-size: 0.8rem; color: #666; display: block; margin-bottom: 0.25rem; }
+    .pace-input-group label span { font-weight: 500; }
+    .pace-input-group input { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }
+    
+    .pace-targets { font-size: 0.8rem; line-height: 1.8; }
+    .pace-target-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+    .pace-target-row:last-child { border-bottom: none; }
+    
+    /* Modal */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: flex-end; z-index: 1000; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: white; width: 100%; border-radius: 16px 16px 0 0; padding: 1.25rem; max-height: 85vh; overflow: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .modal-header h3 { font-size: 1rem; font-weight: 600; }
+    .modal-close { border: none; background: none; font-size: 1.5rem; cursor: pointer; color: #666; }
+    .modal-planned { background: #f9f9f9; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem; }
+    .modal-field { margin-bottom: 1rem; }
+    .modal-field label { font-size: 0.8rem; color: #666; display: block; margin-bottom: 0.25rem; }
+    .modal-field input, .modal-field textarea { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }
+    .modal-field textarea { resize: none; font-size: 0.9rem; }
+    .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .status-buttons { display: flex; gap: 0.5rem; }
+    .status-btn { flex: 1; padding: 0.6rem; border: 1px solid #ddd; background: white; color: #666; border-radius: 8px; font-size: 0.8rem; cursor: pointer; text-transform: capitalize; }
+    .status-btn.active { border-color: #1a1a1a; background: #1a1a1a; color: white; }
+    .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+    .btn-delete { padding: 0.875rem; border: 1px solid #EF4444; background: white; color: #EF4444; border-radius: 8px; font-size: 0.9rem; cursor: pointer; }
+    .btn-save { flex: 1; padding: 0.875rem; border: none; background: #1a1a1a; color: white; border-radius: 8px; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
+    
+    /* Export indicator */
+    .save-indicator { position: fixed; bottom: 20px; right: 20px; background: #1a1a1a; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.75rem; opacity: 0; transition: opacity 0.3s; z-index: 1001; }
+    .save-indicator.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <h1>🎯 Sub-40 10K</h1>
+        <div class="date">Sep 6, 2026</div>
+      </div>
+      <div class="countdown">
+        <div class="countdown-num" id="weeksLeft">23</div>
+        <div class="countdown-label">weeks left</div>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="label">Week</div><div class="value" id="currentWeek">13</div></div>
+      <div class="stat-box"><div class="label">VO2</div><div class="value" id="vo2Pace">4:20</div></div>
+      <div class="stat-box"><div class="label">LT</div><div class="value" id="ltPace">4:45</div></div>
+      <div class="stat-box"><div class="label">Done</div><div class="value" id="doneCount">0/70</div></div>
+      <div class="stat-box"><div class="label">Km</div><div class="value" id="totalKm">0.0</div></div>
+    </div>
+  </div>
+  
+  <div class="nav">
+    <button class="active" data-tab="timeline">Timeline</button>
+    <button data-tab="charts">Charts</button>
+    <button data-tab="stats">Stats</button>
+    <button data-tab="paces">Paces</button>
+  </div>
+  
+  <div class="content">
+    <div id="timeline-tab"></div>
+    <div id="charts-tab" style="display:none;"></div>
+    <div id="stats-tab" style="display:none;"></div>
+    <div id="paces-tab" style="display:none;"></div>
+  </div>
+  
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Log Workout</h3>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-planned" id="modalPlanned"></div>
+      <div class="modal-field">
+        <label>Status</label>
+        <div class="status-buttons" id="statusButtons"></div>
+      </div>
+      <div class="modal-row">
+        <div class="modal-field">
+          <label>Distance (km)</label>
+          <input type="text" id="inputDistance" placeholder="e.g. 8.5">
+        </div>
+        <div class="modal-field">
+          <label>Avg Pace</label>
+          <input type="text" id="inputPace" placeholder="e.g. 4:35">
+        </div>
+      </div>
+      <div class="modal-row">
+        <div class="modal-field">
+          <label>Total Time (min)</label>
+          <input type="text" id="inputTime" placeholder="e.g. 45">
+        </div>
+        <div class="modal-field">
+          <label>Avg HR (bpm)</label>
+          <input type="text" id="inputHR" placeholder="e.g. 165">
+        </div>
+      </div>
+      <div class="modal-field">
+        <label>Notes</label>
+        <textarea id="inputNotes" rows="2" placeholder="How did it feel? Any issues?"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-delete" id="btnDelete" onclick="deleteLog()" style="display:none;">Delete</button>
+        <button class="btn-save" onclick="saveLog()">Save Workout</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="save-indicator" id="saveIndicator">💾 Saved</div>
+
+<script>
+const WEEKS = [
+  {kw:13,phase:'recovery',dates:'Mar 23-29',volTarget:0,sessions:[{id:'w13s1',type:'rest',planned:'HM absorption week - rest and light movement only'}]},
+  {kw:14,phase:'recovery',dates:'Mar 30 - Apr 5',volTarget:18,sessions:[{id:'w14s1',type:'easy',planned:'5km @ 7:00+'},{id:'w14s2',type:'easy',planned:'6km @ 6:45-7:00'},{id:'w14s3',type:'easy',planned:'6-8km @ 6:40-6:50'}]},
+  {kw:15,phase:'recovery',dates:'Apr 6-12',volTarget:22,sessions:[{id:'w15s1',type:'easy',planned:'6km @ 6:40-6:50'},{id:'w15s2',type:'easy',planned:'6km easy + 4×100m strides'},{id:'w15s3',type:'z2',planned:'10km @ 6:40-6:50'}]},
+  {kw:16,phase:'base',dates:'Apr 13-19',volTarget:24,sessions:[{id:'w16s1',type:'vo2',planned:'8×400m @ 4:10-4:15 (100-102s), 90s rest'},{id:'w16s2',type:'threshold',planned:'2×8min @ 4:40-4:45, 2min rest'},{id:'w16s3',type:'z2',planned:'8km @ 6:30-6:45, HR <145'}]},
+  {kw:17,phase:'base',dates:'Apr 20-26',volTarget:26,sessions:[{id:'w17s1',type:'vo2',planned:'10×400m @ 4:10-4:15, 90s rest'},{id:'w17s2',type:'threshold',planned:'2×10min @ 4:40-4:45, 2min rest'},{id:'w17s3',type:'z2',planned:'10km @ 6:30-6:45, HR <145'}]},
+  {kw:18,phase:'base',dates:'Apr 27 - May 3',volTarget:28,sessions:[{id:'w18s1',type:'vo2',planned:'6×600m @ 4:05-4:10 (2:27-2:30), 2min rest'},{id:'w18s2',type:'threshold',planned:'2×12min @ 4:40, 2min rest'},{id:'w18s3',type:'z2',planned:'12km @ 6:30-6:45, HR <145'}]},
+  {kw:19,phase:'base',dates:'May 4-10',volTarget:26,sessions:[{id:'w19s1',type:'vo2',planned:'8×600m @ 4:05-4:10, 90s rest'},{id:'w19s2',type:'threshold',planned:'15min continuous @ 4:40'},{id:'w19s3',type:'z2',planned:'10km @ 6:25-6:40'}],notes:'End of base building - reassess paces'},
+  {kw:20,phase:'vo2max',dates:'May 11-17',volTarget:28,sessions:[{id:'w20s1',type:'vo2',planned:'6×800m @ 4:00-4:05 (3:12-3:16), 2min rest'},{id:'w20s2',type:'threshold',planned:'2×10min @ 4:35, 2min rest'},{id:'w20s3',type:'z2',planned:'12km @ 6:25-6:40'}]},
+  {kw:21,phase:'vo2max',dates:'May 18-24',volTarget:26,sessions:[{id:'w21s1',type:'vo2',planned:'10×400m @ 3:55-4:00 (94-96s), 90s rest'},{id:'w21s2',type:'threshold',planned:'2×12min @ 4:35, 2min rest'},{id:'w21s3',type:'z2',planned:'10km @ 6:20-6:35'}]},
+  {kw:22,phase:'vo2max',dates:'May 25-31',volTarget:30,sessions:[{id:'w22s1',type:'vo2',planned:'5×1km @ 4:00-4:05, 2min rest'},{id:'w22s2',type:'threshold',planned:'18min continuous @ 4:35'},{id:'w22s3',type:'z2',planned:'14km @ 6:20-6:35'}]},
+  {kw:23,phase:'vo2max',dates:'Jun 1-7',volTarget:26,sessions:[{id:'w23s1',type:'vo2',planned:'12×400m @ 3:55-4:00, 75s rest'},{id:'w23s2',type:'threshold',planned:'20min continuous @ 4:30-4:35'},{id:'w23s3',type:'z2',planned:'10km @ 6:20-6:35'}],notes:'End of VO2max block 1 - 5k TT recommended'},
+  {kw:24,phase:'threshold',dates:'Jun 8-14',volTarget:28,sessions:[{id:'w24s1',type:'vo2',planned:'6×800m @ 3:55-4:00, 2min rest'},{id:'w24s2',type:'threshold',planned:'2×15min @ 4:25-4:30, 3min rest'},{id:'w24s3',type:'z2',planned:'12km @ 6:15-6:30'}]},
+  {kw:25,phase:'threshold',dates:'Jun 15-21',volTarget:30,sessions:[{id:'w25s1',type:'vo2',planned:'8×600m @ 3:50-3:55, 90s rest'},{id:'w25s2',type:'threshold',planned:'25min continuous @ 4:25-4:30'},{id:'w25s3',type:'z2',planned:'14km @ 6:15-6:30'}]},
+  {kw:26,phase:'threshold',dates:'Jun 22-28',volTarget:28,sessions:[{id:'w26s1',type:'vo2',planned:'5×1km @ 3:55-4:00, 2min rest'},{id:'w26s2',type:'threshold',planned:'2×12min @ 4:20-4:25, 2min rest'},{id:'w26s3',type:'z2',planned:'12km @ 6:15-6:30'}]},
+  {kw:27,phase:'threshold',dates:'Jun 29 - Jul 5',volTarget:26,sessions:[{id:'w27s1',type:'vo2',planned:'10×400m @ 3:50-3:55, 75s rest'},{id:'w27s2',type:'threshold',planned:'3×10min @ 4:20, 2min rest'},{id:'w27s3',type:'z2',planned:'10km @ 6:10-6:25'}],notes:'End of threshold block - major reassessment'},
+  {kw:28,phase:'vo2max',dates:'Jul 6-12',volTarget:30,sessions:[{id:'w28s1',type:'vo2',planned:'6×800m @ 3:50-3:55 (3:04-3:08), 2min rest'},{id:'w28s2',type:'threshold',planned:'20min continuous @ 4:15-4:20'},{id:'w28s3',type:'z2',planned:'14km @ 6:10-6:25'}]},
+  {kw:29,phase:'vo2max',dates:'Jul 13-19',volTarget:28,sessions:[{id:'w29s1',type:'vo2',planned:'12×400m @ 3:45-3:50 (90-92s), 75s rest'},{id:'w29s2',type:'threshold',planned:'2×15min @ 4:15, 2min rest'},{id:'w29s3',type:'z2',planned:'12km @ 6:05-6:20'}]},
+  {kw:30,phase:'vo2max',dates:'Jul 20-26',volTarget:30,sessions:[{id:'w30s1',type:'vo2',planned:'5×1km @ 3:50-3:55, 2min rest'},{id:'w30s2',type:'threshold',planned:'25min continuous @ 4:15'},{id:'w30s3',type:'z2',planned:'14km @ 6:05-6:20'}]},
+  {kw:31,phase:'vo2max',dates:'Jul 27 - Aug 2',volTarget:26,sessions:[{id:'w31s1',type:'vo2',planned:'8×600m @ 3:45-3:50 (2:15-2:18), 90s rest'},{id:'w31s2',type:'threshold',planned:'2×12min @ 4:10-4:15, 2min rest'},{id:'w31s3',type:'z2',planned:'10km @ 6:00-6:15'}],notes:'End of VO2max block 2 - peak speed'},
+  {kw:32,phase:'raceSpecific',dates:'Aug 3-9',volTarget:28,sessions:[{id:'w32s1',type:'vo2',planned:'6×800m @ 3:50-3:55, 2min rest'},{id:'w32s2',type:'race',planned:'3×2km @ 4:00-4:05, 3min rest'},{id:'w32s3',type:'z2',planned:'12km @ 6:00-6:15'}]},
+  {kw:33,phase:'raceSpecific',dates:'Aug 10-16',volTarget:26,sessions:[{id:'w33s1',type:'vo2',planned:'10×400m @ 3:45-3:50, 75s rest'},{id:'w33s2',type:'race',planned:'4km continuous @ 4:00-4:05'},{id:'w33s3',type:'z2',planned:'10km @ 6:00-6:15'}]},
+  {kw:34,phase:'raceSpecific',dates:'Aug 17-23',volTarget:28,sessions:[{id:'w34s1',type:'vo2',planned:'5×1km @ 3:50-3:55, 2min rest'},{id:'w34s2',type:'race',planned:'5km @ 4:00-4:05 (DRESS REHEARSAL)'},{id:'w34s3',type:'z2',planned:'12km @ 6:00-6:15'}],notes:'Final hard week'},
+  {kw:35,phase:'taper',dates:'Aug 24-30',volTarget:20,sessions:[{id:'w35s1',type:'vo2',planned:'6×400m @ 3:45-3:50, 2min rest'},{id:'w35s2',type:'threshold',planned:'10min @ 4:10 (short & sharp)'},{id:'w35s3',type:'z2',planned:'8km @ 6:10-6:20'}]},
+  {kw:36,phase:'race',dates:'Aug 31 - Sep 6',volTarget:15,sessions:[{id:'w36s1',type:'easy',planned:'5km easy + 4×100m strides'},{id:'w36s2',type:'sharpener',planned:'4×400m @ 3:55, full rest'},{id:'w36s3',type:'race',planned:'🏁 10K RACE - SUB 40!'}]}
+];
+
+const PHASES = {
+  recovery: {color:'#B4B2A9',bg:'#F1EFE8',text:'#444441',name:'Recovery'},
+  base: {color:'#85B7EB',bg:'#E6F1FB',text:'#0C447C',name:'Base'},
+  vo2max: {color:'#AFA9EC',bg:'#EEEDFE',text:'#3C3489',name:'VO2max'},
+  threshold: {color:'#5DCAA5',bg:'#E1F5EE',text:'#085041',name:'Threshold'},
+  raceSpecific: {color:'#F0997B',bg:'#FAECE7',text:'#712B13',name:'Race-spec'},
+  taper: {color:'#FAC775',bg:'#FAEEDA',text:'#633806',name:'Taper'},
+  race: {color:'#97C459',bg:'#EAF3DE',text:'#27500A',name:'Race'}
+};
+
+const TYPES = {
+  vo2: {bg:'#EEEDFE',text:'#3C3489',label:'VO2max'},
+  threshold: {bg:'#E1F5EE',text:'#085041',label:'Threshold'},
+  z2: {bg:'#E6F1FB',text:'#0C447C',label:'Zone 2'},
+  easy: {bg:'#F1EFE8',text:'#444441',label:'Easy'},
+  rest: {bg:'#F1EFE8',text:'#444441',label:'Rest'},
+  race: {bg:'#EAF3DE',text:'#27500A',label:'Race'},
+  sharpener: {bg:'#FAEEDA',text:'#633806',label:'Sharpener'}
+};
+
+let data = {
+  sessions: {},
+  paces: {vo2:'4:20',threshold:'4:45',easy:'6:30'},
+  lastUpdated: null
+};
+
+let currentTab = 'timeline';
+let chartTab = 'paces';
+let expandedWeek = 13;
+let editingSession = null;
+let formStatus = 'completed';
+
+// Load data
+function loadData() {
+  const saved = localStorage.getItem('training-data');
+  if (saved) {
+    data = JSON.parse(saved);
+  }
+  updateUI();
+}
+
+// Save data
+function saveData() {
+  data.lastUpdated = new Date().toISOString();
+  localStorage.setItem('training-data', JSON.stringify(data));
+  showSaveIndicator();
+  exportJSON();
+}
+
+function showSaveIndicator() {
+  const ind = document.getElementById('saveIndicator');
+  ind.classList.add('show');
+  setTimeout(() => ind.classList.remove('show'), 1500);
+}
+
+// Export JSON for Claude to read
+function exportJSON() {
+  const exportData = {
+    ...data,
+    exportedAt: new Date().toISOString(),
+    stats: getTotalStats()
+  };
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
+  // Create download link for manual export if needed
+  const url = URL.createObjectURL(blob);
+  const existing = document.getElementById('exportLink');
+  if (existing) existing.remove();
+  const a = document.createElement('a');
+  a.id = 'exportLink';
+  a.href = url;
+  a.download = 'training_log.json';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+}
+
+// Stats
+function getTotalStats() {
+  let completed = 0, total = 0, distance = 0, time = 0;
+  WEEKS.forEach(w => w.sessions.forEach(s => {
+    total++;
+    const log = data.sessions[s.id];
+    if (log?.status === 'completed') completed++;
+    if (log?.distance) distance += parseFloat(log.distance);
+    if (log?.time) time += parseFloat(log.time);
+  }));
+  return {completed, total, distance, time};
+}
+
+function getWeekStats(week) {
+  let completed = 0, distance = 0, time = 0;
+  week.sessions.forEach(s => {
+    const log = data.sessions[s.id];
+    if (log?.status === 'completed') completed++;
+    if (log?.distance) distance += parseFloat(log.distance);
+    if (log?.time) time += parseFloat(log.time);
+  });
+  return {completed, total: week.sessions.length, distance, time};
+}
+
+function formatTime(mins) {
+  if (!mins) return '-';
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// Update UI
+function updateUI() {
+  const stats = getTotalStats();
+  document.getElementById('vo2Pace').textContent = data.paces.vo2;
+  document.getElementById('ltPace').textContent = data.paces.threshold;
+  document.getElementById('doneCount').textContent = `${stats.completed}/${stats.total}`;
+  document.getElementById('totalKm').textContent = stats.distance.toFixed(1);
+  
+  renderTimeline();
+  renderCharts();
+  renderStats();
+  renderPaces();
+}
+
+// Timeline
+function renderTimeline() {
+  const container = document.getElementById('timeline-tab');
+  let html = `<div class="legend">`;
+  Object.entries(PHASES).forEach(([k,p]) => {
+    html += `<div class="legend-item"><div class="legend-dot" style="background:${p.color}"></div>${p.name}</div>`;
+  });
+  html += `</div>`;
+  
+  WEEKS.forEach(w => {
+    const phase = PHASES[w.phase];
+    const ws = getWeekStats(w);
+    const isExp = expandedWeek === w.kw;
+    const isCur = w.kw === 13;
+    
+    html += `<div class="week-card${isCur?' current':''}">`;
+    html += `<div class="week-header" style="background:${phase.bg}" onclick="toggleWeek(${w.kw})">`;
+    html += `<div class="week-header-left">`;
+    html += `<span class="week-kw" style="color:${phase.text}">KW${w.kw}</span>`;
+    html += `<span class="week-dates" style="color:${phase.text}">${w.dates}</span>`;
+    html += `</div>`;
+    html += `<div class="week-header-right">`;
+    html += `<span class="week-progress${ws.completed===ws.total&&ws.total>0?' complete':''}">${ws.completed}/${ws.total}</span>`;
+    html += `<span class="phase-badge" style="background:${phase.bg};color:${phase.text}">${phase.name}</span>`;
+    html += `<span class="week-arrow${isExp?' expanded':''}">▼</span>`;
+    html += `</div></div>`;
+    
+    html += `<div class="week-body${isExp?' expanded':''}">`;
+    if (ws.distance > 0) {
+      html += `<div class="week-summary">📏 ${ws.distance.toFixed(1)} km ⏱️ ${formatTime(ws.time)}</div>`;
+    }
+    
+    w.sessions.forEach(s => {
+      const log = data.sessions[s.id];
+      const type = TYPES[s.type];
+      const icon = log?.status==='completed'?'✓':log?.status==='skipped'?'✕':log?.status==='modified'?'~':'○';
+      const statusClass = log?.status || 'pending';
+      
+      html += `<div class="session" onclick="openModal('${s.id}')">`;
+      html += `<div class="session-status ${statusClass}">${icon}</div>`;
+      html += `<div class="session-content">`;
+      html += `<span class="session-type" style="background:${type.bg};color:${type.text}">${type.label}</span>`;
+      html += `<div class="session-planned">${s.planned}</div>`;
+      if (log) {
+        let logText = '';
+        if (log.distance) logText += `${log.distance}km`;
+        if (log.pace) logText += ` @ ${log.pace}`;
+        if (log.time) logText += ` · ${log.time}min`;
+        if (log.hr) logText += ` · ${log.hr}bpm`;
+        html += `<div class="session-logged">${logText}`;
+        if (log.notes) html += `<div class="session-notes">${log.notes}</div>`;
+        html += `</div>`;
+      }
+      html += `</div></div>`;
+    });
+    
+    if (w.notes) {
+      html += `<div class="week-notes">📌 ${w.notes}</div>`;
+    }
+    html += `</div></div>`;
+  });
+  
+  container.innerHTML = html;
+}
+
+function toggleWeek(kw) {
+  expandedWeek = expandedWeek === kw ? null : kw;
+  renderTimeline();
+}
+
+// Charts
+function renderCharts() {
+  const container = document.getElementById('charts-tab');
+  let html = `<div class="chart-nav">`;
+  [{k:'paces',l:'Pace Targets'},{k:'volume',l:'Volume'},{k:'actual',l:'Actual vs Plan'}].forEach(t => {
+    html += `<button class="${chartTab===t.k?'active':''}" onclick="setChartTab('${t.k}')">${t.l}</button>`;
+  });
+  html += `</div>`;
+  
+  if (chartTab === 'paces') {
+    html += `<div class="chart-card">
+      <h3>Target Pace Progression</h3>
+      <p>Plan targets by week (faster = lower on chart)</p>
+      <svg viewBox="0 0 360 200" style="width:100%;height:auto;">
+        ${[0,1,2,3,4].map(i => `
+          <line x1="40" y1="${30+i*40}" x2="350" y2="${30+i*40}" stroke="#f0f0f0" stroke-width="1"/>
+          <text x="35" y="${34+i*40}" text-anchor="end" font-size="8" fill="#999">${['3:45','4:00','4:15','4:30','4:45'][i]}</text>
+        `).join('')}
+        <rect x="40" y="20" width="39" height="170" fill="#F1EFE8" opacity="0.5"/>
+        <rect x="79" y="20" width="52" height="170" fill="#E6F1FB" opacity="0.5"/>
+        <rect x="131" y="20" width="52" height="170" fill="#EEEDFE" opacity="0.5"/>
+        <rect x="183" y="20" width="52" height="170" fill="#E1F5EE" opacity="0.5"/>
+        <rect x="235" y="20" width="52" height="170" fill="#EEEDFE" opacity="0.5"/>
+        <rect x="287" y="20" width="39" height="170" fill="#FAECE7" opacity="0.5"/>
+        <rect x="326" y="20" width="24" height="170" fill="#EAF3DE" opacity="0.5"/>
+        <polyline fill="none" stroke="#3C3489" stroke-width="2" points="53,150 92,150 105,150 118,140 131,140 144,130 157,120 170,125 183,120 196,110 209,100 222,110 235,100 248,90 261,80 274,90 287,80 300,90 313,80 326,95 339,100"/>
+        <polyline fill="none" stroke="#085041" stroke-width="2" points="53,170 92,170 105,170 118,160 131,160 144,150 157,150 170,150 183,145 196,130 209,130 222,125 235,120 248,115 261,115 270,110 287,105 300,105 313,100 326,110 339,110"/>
+        <line x1="53" y1="20" x2="53" y2="190" stroke="#FFD700" stroke-width="2" stroke-dasharray="4,2"/>
+        <circle cx="60" cy="12" r="4" fill="#3C3489"/><text x="68" y="15" font-size="8" fill="#3C3489">VO2max</text>
+        <circle cx="120" cy="12" r="4" fill="#085041"/><text x="128" y="15" font-size="8" fill="#085041">Threshold</text>
+        <text x="53" y="198" text-anchor="middle" font-size="7" fill="#999">13</text>
+        <text x="92" y="198" text-anchor="middle" font-size="7" fill="#999">16</text>
+        <text x="144" y="198" text-anchor="middle" font-size="7" fill="#999">20</text>
+        <text x="196" y="198" text-anchor="middle" font-size="7" fill="#999">24</text>
+        <text x="248" y="198" text-anchor="middle" font-size="7" fill="#999">28</text>
+        <text x="300" y="198" text-anchor="middle" font-size="7" fill="#999">32</text>
+        <text x="339" y="198" text-anchor="middle" font-size="7" fill="#999">36</text>
+      </svg>
+      <div class="chart-summary">
+        <div class="chart-summary-box" style="background:#EEEDFE">
+          <div class="label" style="color:#3C3489">VO2max</div>
+          <div class="value" style="color:#3C3489">${data.paces.vo2}</div>
+          <div class="sub">→ 3:45 target</div>
+        </div>
+        <div class="chart-summary-box" style="background:#E1F5EE">
+          <div class="label" style="color:#085041">Threshold</div>
+          <div class="value" style="color:#085041">${data.paces.threshold}</div>
+          <div class="sub">→ 4:00 target</div>
+        </div>
+      </div>
+    </div>`;
+  } else if (chartTab === 'volume') {
+    const stats = getTotalStats();
+    const totalPlanned = WEEKS.reduce((s,w) => s + w.volTarget, 0);
+    html += `<div class="chart-card">
+      <h3>Weekly Volume (km)</h3>
+      <p>Planned volume by week</p>
+      <div class="volume-chart">
+        ${WEEKS.map(w => {
+          const phase = PHASES[w.phase];
+          const ws = getWeekStats(w);
+          const plannedH = (w.volTarget / 30) * 120;
+          const actualH = ws.distance > 0 ? (ws.distance / 30) * 120 : 0;
+          return `<div class="volume-bar-wrap">
+            <div class="volume-bar-container">
+              <div class="volume-bar planned" style="height:${plannedH}px;background:${phase.color}"></div>
+              ${actualH > 0 ? `<div class="volume-bar actual" style="height:${actualH}px;width:60%;background:${phase.color}"></div>` : ''}
+            </div>
+            <div class="volume-label">${w.kw}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="volume-legend">
+        <div class="volume-legend-item"><div class="volume-legend-box" style="background:#888;opacity:0.4"></div>Planned</div>
+        <div class="volume-legend-item"><div class="volume-legend-box" style="background:#888"></div>Actual</div>
+      </div>
+      <div class="volume-stats">
+        <div class="volume-stat"><div class="label">Total Planned</div><div class="value">${totalPlanned} km</div></div>
+        <div class="volume-stat"><div class="label">Total Logged</div><div class="value">${stats.distance.toFixed(1)} km</div></div>
+        <div class="volume-stat"><div class="label">Avg/Week</div><div class="value">${Math.round(totalPlanned / 24)} km</div></div>
+      </div>
+    </div>`;
+  } else if (chartTab === 'actual') {
+    const vo2Sessions = [];
+    const thresholdSessions = [];
+    WEEKS.forEach(w => w.sessions.forEach(s => {
+      const log = data.sessions[s.id];
+      if (log?.pace && log?.status === 'completed') {
+        if (s.type === 'vo2') vo2Sessions.push({kw: w.kw, pace: log.pace});
+        else if (s.type === 'threshold') thresholdSessions.push({kw: w.kw, pace: log.pace});
+      }
+    }));
+    
+    html += `<div class="chart-card">
+      <h3>Actual vs Planned Paces</h3>
+      <p>Your logged paces compared to targets</p>`;
+    
+    if (vo2Sessions.length === 0 && thresholdSessions.length === 0) {
+      html += `<div class="actual-empty">
+        <div class="actual-empty-icon">📊</div>
+        <div>No pace data logged yet</div>
+        <div style="font-size:0.75rem;margin-top:0.25rem;">Log workouts with pace to see your progress here</div>
+      </div>`;
+    } else {
+      if (vo2Sessions.length > 0) {
+        html += `<div class="actual-section">
+          <div class="actual-section-title" style="color:#3C3489">VO2max Sessions</div>
+          ${vo2Sessions.map(s => `
+            <div class="actual-row">
+              <span class="actual-kw">KW${s.kw}</span>
+              <div class="actual-bar"><div class="actual-bar-fill" style="width:70%;background:#3C3489"></div></div>
+              <span class="actual-pace" style="color:#3C3489">${s.pace}</span>
+            </div>
+          `).join('')}
+        </div>`;
+      }
+      if (thresholdSessions.length > 0) {
+        html += `<div class="actual-section">
+          <div class="actual-section-title" style="color:#085041">Threshold Sessions</div>
+          ${thresholdSessions.map(s => `
+            <div class="actual-row">
+              <span class="actual-kw">KW${s.kw}</span>
+              <div class="actual-bar"><div class="actual-bar-fill" style="width:70%;background:#085041"></div></div>
+              <span class="actual-pace" style="color:#085041">${s.pace}</span>
+            </div>
+          `).join('')}
+        </div>`;
+      }
+    }
+    html += `</div>`;
+  }
+  
+  html += `<div class="phase-legend">
+    <div class="phase-legend-title">Training Phases</div>
+    <div class="phase-legend-grid">
+      ${Object.entries(PHASES).map(([k,p]) => `
+        <div class="phase-legend-item">
+          <div class="phase-legend-dot" style="background:${p.color}"></div>
+          <span class="phase-legend-name">${p.name}</span>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+  
+  container.innerHTML = html;
+}
+
+function setChartTab(tab) {
+  chartTab = tab;
+  renderCharts();
+}
+
+// Stats
+function renderStats() {
+  const container = document.getElementById('stats-tab');
+  const stats = getTotalStats();
+  const pct = Math.round((stats.completed / stats.total) * 100);
+  
+  let html = `<div class="stats-card">
+    <h3>Overall Progress</h3>
+    <div class="stats-grid">
+      <div class="stats-item"><div class="label">Sessions completed</div><div class="value">${stats.completed}</div><div class="sub">of ${stats.total}</div></div>
+      <div class="stats-item"><div class="label">Completion rate</div><div class="value">${pct}%</div><div class="sub">of plan</div></div>
+      <div class="stats-item"><div class="label">Total distance</div><div class="value">${stats.distance.toFixed(1)}km</div><div class="sub">logged</div></div>
+      <div class="stats-item"><div class="label">Total time</div><div class="value">${formatTime(stats.time)}</div><div class="sub">logged</div></div>
+    </div>
+  </div>`;
+  
+  html += `<div class="stats-card">
+    <h3>Weekly Breakdown</h3>
+    <div class="weekly-breakdown">
+      ${WEEKS.map(w => {
+        const ws = getWeekStats(w);
+        const phase = PHASES[w.phase];
+        const pct = ws.total > 0 ? (ws.completed / ws.total) * 100 : 0;
+        return `<div class="breakdown-row">
+          <span class="breakdown-kw">KW${w.kw}</span>
+          <div class="breakdown-bar"><div class="breakdown-bar-fill" style="width:${pct}%;background:${phase.color}"></div></div>
+          <span class="breakdown-count">${ws.completed}/${ws.total}</span>
+          ${ws.distance > 0 ? `<span class="breakdown-km">${ws.distance.toFixed(1)}km</span>` : '<span class="breakdown-km"></span>'}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+  
+  container.innerHTML = html;
+}
+
+// Paces
+function renderPaces() {
+  const container = document.getElementById('paces-tab');
+  
+  let html = `<div class="paces-card">
+    <h3>Current Paces</h3>
+    <p>Update these as your fitness improves</p>
+    <div class="pace-input-group">
+      <label>VO2max pace <span style="color:#3C3489">→ 3:45</span></label>
+      <input type="text" id="paceVo2" value="${data.paces.vo2}" onchange="updatePace('vo2', this.value)">
+    </div>
+    <div class="pace-input-group">
+      <label>Threshold pace <span style="color:#085041">→ 4:00</span></label>
+      <input type="text" id="paceThreshold" value="${data.paces.threshold}" onchange="updatePace('threshold', this.value)">
+    </div>
+    <div class="pace-input-group">
+      <label>Easy pace <span style="color:#0C447C">→ 5:50</span></label>
+      <input type="text" id="paceEasy" value="${data.paces.easy}" onchange="updatePace('easy', this.value)">
+    </div>
+  </div>`;
+  
+  html += `<div class="paces-card">
+    <h3>Target Progression</h3>
+    <div class="pace-targets">
+      <div class="pace-target-row"><span>VO2max pace</span><span><strong>4:20</strong> → <strong style="color:#3C3489">3:45</strong></span></div>
+      <div class="pace-target-row"><span>Threshold pace</span><span><strong>4:45</strong> → <strong style="color:#085041">4:00</strong></span></div>
+      <div class="pace-target-row"><span>Easy pace</span><span><strong>6:30</strong> → <strong style="color:#0C447C">5:50</strong></span></div>
+      <div class="pace-target-row"><span>Race pace (10k)</span><span><strong style="color:#27500A">4:00/km</strong></span></div>
+    </div>
+  </div>`;
+  
+  container.innerHTML = html;
+}
+
+function updatePace(type, value) {
+  data.paces[type] = value;
+  saveData();
+  updateUI();
+}
+
+// Modal
+function openModal(sessionId) {
+  const session = findSession(sessionId);
+  if (!session) return;
+  
+  editingSession = session;
+  const log = data.sessions[sessionId];
+  
+  document.getElementById('modalPlanned').textContent = session.planned;
+  document.getElementById('inputDistance').value = log?.distance || '';
+  document.getElementById('inputPace').value = log?.pace || '';
+  document.getElementById('inputTime').value = log?.time || '';
+  document.getElementById('inputHR').value = log?.hr || '';
+  document.getElementById('inputNotes').value = log?.notes || '';
+  document.getElementById('btnDelete').style.display = log ? 'block' : 'none';
+  
+  formStatus = log?.status || 'completed';
+  renderStatusButtons();
+  
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  editingSession = null;
+}
+
+function renderStatusButtons() {
+  const container = document.getElementById('statusButtons');
+  container.innerHTML = ['completed','modified','skipped'].map(s => 
+    `<button class="status-btn${formStatus===s?' active':''}" onclick="setStatus('${s}')">${s}</button>`
+  ).join('');
+}
+
+function setStatus(s) {
+  formStatus = s;
+  renderStatusButtons();
+}
+
+function saveLog() {
+  if (!editingSession) return;
+  
+  data.sessions[editingSession.id] = {
+    status: formStatus,
+    distance: document.getElementById('inputDistance').value,
+    pace: document.getElementById('inputPace').value,
+    time: document.getElementById('inputTime').value,
+    hr: document.getElementById('inputHR').value,
+    notes: document.getElementById('inputNotes').value,
+    loggedAt: new Date().toISOString()
+  };
+  
+  saveData();
+  closeModal();
+  updateUI();
+}
+
+function deleteLog() {
+  if (!editingSession) return;
+  delete data.sessions[editingSession.id];
+  saveData();
+  closeModal();
+  updateUI();
+}
+
+function findSession(id) {
+  for (const w of WEEKS) {
+    for (const s of w.sessions) {
+      if (s.id === id) return s;
+    }
+  }
+  return null;
+}
+
+// Tab navigation
+document.querySelectorAll('.nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTab = btn.dataset.tab;
+    
+    document.getElementById('timeline-tab').style.display = currentTab === 'timeline' ? 'block' : 'none';
+    document.getElementById('charts-tab').style.display = currentTab === 'charts' ? 'block' : 'none';
+    document.getElementById('stats-tab').style.display = currentTab === 'stats' ? 'block' : 'none';
+    document.getElementById('paces-tab').style.display = currentTab === 'paces' ? 'block' : 'none';
+  });
+});
+
+// Manual export button (for syncing to iCloud)
+function manualExport() {
+  document.getElementById('exportLink').click();
+}
+
+// Init
+loadData();
+</script>
+</body>
+</html>
