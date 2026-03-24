@@ -2,788 +2,2179 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Sub-40 10K Tracker</title>
+  <title>Running Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif; background: #f5f5f5; min-height: 100vh; padding-bottom: 2rem; }
+    :root {
+      --bg: #0a0a0a; --surface: #141414; --surface-2: #1c1c1c;
+      --border: #2a2a2a; --text: #e5e5e5; --text-muted: #777;
+      --accent: #22c55e; --accent-dim: #166534;
+      --phase-base: #3b82f6; --phase-build: #8b5cf6;
+      --phase-threshold: #10b981; --phase-vo2: #f59e0b;
+      --phase-race-specific: #ef4444; --phase-taper: #ec4899;
+      --phase-race: #22c55e; --phase-recovery: #6b7280;
+      --phase-vacation: #64748b;
+      --type-lr: #3b82f6; --type-er: #6b7280; --type-tr: #f59e0b;
+      --type-br: #8b5cf6; --type-vo2: #ef4444; --type-race: #22c55e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; line-height: 1.4;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 500px; margin: 0 auto; padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
     
-    .header { background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); color: white; padding: 1.25rem 1rem; position: sticky; top: 0; z-index: 100; }
-    .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
-    .header h1 { font-size: 1.1rem; font-weight: 600; }
-    .header .date { font-size: 0.75rem; opacity: 0.7; }
-    .header .countdown { text-align: right; }
-    .header .countdown-num { font-size: 1.5rem; font-weight: 700; }
-    .header .countdown-label { font-size: 0.65rem; opacity: 0.7; }
-    .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem; }
-    .stat-box { background: rgba(255,255,255,0.1); padding: 0.4rem; border-radius: 6px; text-align: center; }
-    .stat-box .label { font-size: 0.55rem; opacity: 0.7; }
-    .stat-box .value { font-size: 0.8rem; font-weight: 600; }
+    /* Header */
+    .header {
+      background: var(--surface);
+      padding: 1rem; position: sticky; top: 0; z-index: 100;
+      border-bottom: 1px solid var(--border);
+    }
+    .plan-selector-wrap { margin-bottom: 0.75rem; }
+    .plan-dropdown {
+      width: 100%; padding: 0.7rem 1rem; 
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: inherit;
+      font-size: 0.85rem; font-weight: 500; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23777' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+    }
+    .plan-dropdown:focus { outline: none; border-color: var(--accent); }
+    .plan-dropdown option { background: var(--surface); color: var(--text); padding: 0.5rem; }
     
-    .nav { display: flex; background: white; border-bottom: 1px solid #eee; position: sticky; top: 108px; z-index: 99; }
-    .nav button { flex: 1; padding: 0.75rem; border: none; background: none; font-size: 0.8rem; color: #666; border-bottom: 2px solid transparent; cursor: pointer; }
-    .nav button.active { color: #1a1a1a; border-bottom-color: #1a1a1a; font-weight: 500; }
+    .header-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;
+    }
+    .stat-box {
+      background: var(--bg); padding: 0.6rem 0.5rem; border-radius: 6px;
+      text-align: center; border: 1px solid var(--border);
+    }
+    .stat-box .label { font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; }
+    .stat-box .value { font-size: 1rem; font-weight: 600; margin-top: 0.15rem; }
     
+    /* Navigation */
+    .nav {
+      display: flex; background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 106px; z-index: 99;
+    }
+    .nav-btn {
+      flex: 1; padding: 0.6rem; border: none; background: none;
+      color: var(--text-muted); font-size: 0.7rem; cursor: pointer;
+      font-family: inherit; border-bottom: 2px solid transparent;
+    }
+    .nav-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+    
+    /* Content */
     .content { padding: 0.75rem; }
     
-    .legend { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem; background: white; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.7rem; }
-    .legend-item { display: flex; align-items: center; gap: 4px; }
-    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+    /* Week Card */
+    .week-card {
+      background: var(--surface); border-radius: 8px;
+      margin-bottom: 0.6rem; overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .week-card.current { border-color: var(--accent); }
+    .week-header {
+      padding: 0.9rem 0.75rem; display: flex;
+      justify-content: space-between; align-items: center;
+      cursor: pointer; transition: background 0.2s;
+      min-height: 56px;
+    }
+    .week-header:hover { background: var(--surface-2); }
+    .week-info { display: flex; align-items: center; gap: 0.4rem; }
+    .week-num { font-weight: 600; font-size: 0.85rem; }
+    .week-kw { font-size: 0.65rem; color: var(--text-muted); }
+    .week-dates { font-size: 0.65rem; color: var(--text-muted); }
+    .week-meta { display: flex; align-items: center; gap: 0.4rem; }
+    .week-progress {
+      font-size: 0.65rem; padding: 0.15rem 0.4rem;
+      background: var(--bg); border-radius: 10px;
+    }
+    .week-progress.complete { background: var(--accent-dim); color: var(--accent); }
+    .phase-badge {
+      font-size: 0.55rem; padding: 0.15rem 0.4rem;
+      border-radius: 4px; text-transform: uppercase; font-weight: 600;
+    }
+    .expand-icon { color: var(--text-muted); transition: transform 0.2s; }
+    .week-card.expanded .expand-icon { transform: rotate(180deg); }
     
-    .week-card { background: white; border-radius: 12px; margin-bottom: 0.75rem; overflow: hidden; border: 1px solid #eee; }
-    .week-card.current { border: 2px solid #FFD700; }
-    .week-header { padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
-    .week-header-left { display: flex; align-items: center; gap: 0.75rem; }
-    .week-kw { font-size: 1rem; font-weight: 600; }
-    .week-dates { font-size: 0.75rem; opacity: 0.7; }
-    .week-header-right { display: flex; align-items: center; gap: 0.5rem; }
-    .week-progress { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 10px; background: #f0f0f0; color: #666; }
-    .week-progress.complete { background: #D1FAE5; color: #065F46; }
-    .phase-badge { font-size: 0.65rem; padding: 0.2rem 0.5rem; border-radius: 10px; font-weight: 500; }
-    .week-arrow { font-size: 1.2rem; color: #999; transition: transform 0.2s; }
-    .week-arrow.expanded { transform: rotate(180deg); }
+    /* Week Body */
+    .week-body { display: none; padding: 0 0.75rem 0.75rem; }
+    .week-card.expanded .week-body { display: block; }
     
-    .week-body { padding: 0 1rem 1rem; border-top: 1px solid #eee; display: none; }
-    .week-body.expanded { display: block; }
-    .week-summary { display: flex; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.8rem; color: #666; }
+    /* Pace Week Cards */
+    .pace-week-card {
+      background: var(--surface); border-radius: 8px;
+      margin-bottom: 0.5rem; border: 1px solid var(--border);
+    }
+    .pace-week-card.current { border-color: var(--accent); }
+    .pace-week-header {
+      padding: 0.75rem; display: flex;
+      justify-content: space-between; align-items: center;
+      cursor: pointer; min-height: 48px;
+    }
+    .pace-week-body { display: none; padding: 0 0.75rem 0.75rem; border-top: 1px solid var(--border); }
+    .pace-week-card.expanded .pace-week-body { display: block; }
     
-    .session { display: flex; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid #f5f5f5; cursor: pointer; }
-    .session-status { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; }
-    .session-status.pending { background: #F3F4F6; color: #9CA3AF; }
-    .session-status.completed { background: #D1FAE5; color: #065F46; }
-    .session-status.modified { background: #FEF3C7; color: #92400E; }
-    .session-status.skipped { background: #FEE2E2; color: #991B1B; }
+    /* Session */
+    .session {
+      display: flex; gap: 0.6rem; padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border); cursor: pointer;
+      min-height: 48px; /* Touch target */
+      -webkit-touch-callout: none; user-select: none;
+    }
+    .session:active { background: var(--surface-2); margin: 0 -0.75rem; padding-left: 0.75rem; padding-right: 0.75rem; }
+    .session:last-child { border-bottom: none; }
+    .session-status {
+      width: 24px; height: 24px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; flex-shrink: 0;
+      background: var(--bg); border: 1px solid var(--border);
+    }
+    .session-status.completed { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+    .session-status.skipped { background: #7f1d1d; border-color: #ef4444; color: #ef4444; }
+    .session-status.modified { background: #78350f; border-color: #f59e0b; color: #f59e0b; }
     .session-content { flex: 1; min-width: 0; }
-    .session-type { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
-    .session-planned { font-size: 0.85rem; margin-top: 0.25rem; line-height: 1.4; }
-    .session-logged { font-size: 0.8rem; color: #059669; margin-top: 0.25rem; padding-top: 0.25rem; border-top: 1px dashed #e5e5e5; }
-    .session-notes { color: #666; font-style: italic; }
+    .session-type {
+      display: inline-block; font-size: 0.55rem; padding: 0.1rem 0.35rem;
+      border-radius: 3px; font-weight: 600; text-transform: uppercase;
+      margin-bottom: 0.2rem;
+    }
+    .session-planned { font-size: 0.75rem; line-height: 1.4; }
+    .session-logged {
+      font-size: 0.7rem; color: var(--accent); margin-top: 0.25rem;
+      padding-top: 0.25rem; border-top: 1px dashed var(--border);
+    }
+    .session-notes { color: var(--text-muted); font-style: italic; }
     
-    .week-notes { background: #FEFCE8; border-left: 3px solid #EAB308; padding: 0.6rem 0.75rem; border-radius: 0 6px 6px 0; margin-top: 0.75rem; font-size: 0.8rem; }
+    /* Week Note */
+    .week-note {
+      background: #422006; border-left: 3px solid #f59e0b;
+      padding: 0.5rem 0.6rem; border-radius: 0 4px 4px 0;
+      margin-top: 0.5rem; font-size: 0.7rem;
+    }
     
     /* Charts Tab */
-    .chart-nav { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-    .chart-nav button { flex: 1; padding: 0.6rem; border: none; border-radius: 8px; background: white; color: #666; font-size: 0.75rem; font-weight: 500; cursor: pointer; }
-    .chart-nav button.active { background: #1a1a1a; color: white; }
-    .chart-card { background: white; border-radius: 12px; padding: 1rem; margin-bottom: 0.75rem; }
-    .chart-card h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; color: #333; }
-    .chart-card p { font-size: 0.75rem; color: #888; margin-bottom: 1rem; }
-    .chart-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-top: 1rem; }
-    .chart-summary-box { padding: 0.75rem; border-radius: 8px; text-align: center; }
-    .chart-summary-box .label { font-size: 0.7rem; }
-    .chart-summary-box .value { font-size: 1.1rem; font-weight: 600; }
-    .chart-summary-box .sub { font-size: 0.65rem; color: #666; }
+    .chart-section {
+      background: var(--surface); border-radius: 8px;
+      padding: 1rem; margin-bottom: 0.75rem;
+      border: 1px solid var(--border);
+    }
+    .chart-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.75rem; }
+    .chart-subtitle { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.75rem; }
     
-    .volume-chart { display: flex; align-items: flex-end; gap: 3px; height: 150px; padding-bottom: 20px; }
-    .volume-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; }
-    .volume-bar-container { position: relative; width: 100%; height: 120px; display: flex; align-items: flex-end; justify-content: center; }
-    .volume-bar { width: 60%; border-radius: 3px 3px 0 0; }
-    .volume-bar.planned { opacity: 0.4; }
-    .volume-bar.actual { position: absolute; bottom: 0; }
-    .volume-label { font-size: 6px; color: #999; margin-top: 4px; }
-    .volume-legend { display: flex; justify-content: center; gap: 1rem; margin-top: 0.5rem; font-size: 0.7rem; }
-    .volume-legend-item { display: flex; align-items: center; gap: 4px; }
-    .volume-legend-box { width: 12px; height: 12px; border-radius: 2px; }
-    
-    .volume-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 1rem; }
-    .volume-stat { background: #f9f9f9; padding: 0.6rem; border-radius: 8px; text-align: center; }
-    .volume-stat .label { font-size: 0.65rem; color: #888; }
-    .volume-stat .value { font-size: 1rem; font-weight: 600; }
-    
-    .actual-empty { text-align: center; padding: 2rem; color: #888; }
-    .actual-empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-    .actual-section { margin-bottom: 1rem; }
-    .actual-section-title { font-size: 0.8rem; font-weight: 500; margin-bottom: 0.5rem; }
-    .actual-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0; }
-    .actual-kw { font-size: 0.75rem; width: 40px; }
-    .actual-bar { flex: 1; height: 6px; background: #f0f0f0; border-radius: 3px; position: relative; }
-    .actual-bar-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 3px; }
-    .actual-pace { font-size: 0.8rem; font-weight: 500; }
-    
-    .phase-legend { background: white; border-radius: 12px; padding: 1rem; margin-top: 0.75rem; }
-    .phase-legend-title { font-size: 0.75rem; font-weight: 500; margin-bottom: 0.5rem; color: #666; }
-    .phase-legend-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
-    .phase-legend-item { display: flex; align-items: center; gap: 4px; }
-    .phase-legend-dot { width: 10px; height: 10px; border-radius: 2px; }
-    .phase-legend-name { font-size: 0.65rem; color: #666; }
-    
-    /* Stats Tab */
-    .stats-card { background: white; border-radius: 12px; padding: 1rem; margin-bottom: 0.75rem; }
-    .stats-card h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: #333; }
-    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
-    .stats-item { background: #f9f9f9; padding: 0.75rem; border-radius: 8px; }
-    .stats-item .label { font-size: 0.7rem; color: #888; }
-    .stats-item .value { font-size: 1.25rem; font-weight: 600; }
-    .stats-item .sub { font-size: 0.65rem; color: #aaa; }
-    
-    .weekly-breakdown { }
-    .breakdown-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0; }
-    .breakdown-kw { font-size: 0.8rem; font-weight: 500; width: 45px; }
-    .breakdown-bar { flex: 1; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
-    .breakdown-bar-fill { height: 100%; border-radius: 4px; }
-    .breakdown-count { font-size: 0.75rem; color: #666; width: 35px; }
-    .breakdown-km { font-size: 0.7rem; color: #999; width: 50px; }
-    
-    /* Paces Tab */
-    .paces-card { background: white; border-radius: 12px; padding: 1rem; margin-bottom: 0.75rem; }
-    .paces-card h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: #333; }
-    .paces-card p { font-size: 0.8rem; color: #666; margin-bottom: 1rem; }
-    .pace-input-group { margin-bottom: 1rem; }
-    .pace-input-group label { font-size: 0.8rem; color: #666; display: block; margin-bottom: 0.25rem; }
-    .pace-input-group label span { font-weight: 500; }
-    .pace-input-group input { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }
-    
-    .pace-targets { font-size: 0.8rem; line-height: 1.8; }
-    .pace-target-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
-    .pace-target-row:last-child { border-bottom: none; }
+    /* Stats Grid */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem;
+    }
+    .stats-card {
+      background: var(--bg); padding: 0.75rem; border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .stats-card .label { font-size: 0.65rem; color: var(--text-muted); }
+    .stats-card .value { font-size: 1.2rem; font-weight: 600; }
+    .stats-card .sub { font-size: 0.6rem; color: var(--text-muted); }
     
     /* Modal */
-    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: flex-end; z-index: 1000; }
-    .modal-overlay.open { display: flex; }
-    .modal { background: white; width: 100%; border-radius: 16px 16px 0 0; padding: 1.25rem; max-height: 85vh; overflow: auto; }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .modal-header h3 { font-size: 1rem; font-weight: 600; }
-    .modal-close { border: none; background: none; font-size: 1.5rem; cursor: pointer; color: #666; }
-    .modal-planned { background: #f9f9f9; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem; }
-    .modal-field { margin-bottom: 1rem; }
-    .modal-field label { font-size: 0.8rem; color: #666; display: block; margin-bottom: 0.25rem; }
-    .modal-field input, .modal-field textarea { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }
-    .modal-field textarea { resize: none; font-size: 0.9rem; }
-    .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-    .status-buttons { display: flex; gap: 0.5rem; }
-    .status-btn { flex: 1; padding: 0.6rem; border: 1px solid #ddd; background: white; color: #666; border-radius: 8px; font-size: 0.8rem; cursor: pointer; text-transform: capitalize; }
-    .status-btn.active { border-color: #1a1a1a; background: #1a1a1a; color: white; }
-    .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
-    .btn-delete { padding: 0.875rem; border: 1px solid #EF4444; background: white; color: #EF4444; border-radius: 8px; font-size: 0.9rem; cursor: pointer; }
-    .btn-save { flex: 1; padding: 0.875rem; border: none; background: #1a1a1a; color: white; border-radius: 8px; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
+    .modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8); z-index: 1000;
+      align-items: flex-end; justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--surface); width: 100%; max-width: 500px;
+      border-radius: 16px 16px 0 0; padding: 1.25rem;
+      padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+      max-height: 85vh; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 1rem;
+    }
+    .modal-title { font-size: 1rem; font-weight: 600; }
+    .modal-close {
+      background: none; border: none; color: var(--text-muted);
+      font-size: 1.5rem; cursor: pointer; padding: 0;
+    }
+    .modal-planned {
+      background: var(--bg); padding: 0.6rem; border-radius: 6px;
+      margin-bottom: 1rem; font-size: 0.8rem;
+    }
     
-    /* Export indicator */
-    .save-indicator { position: fixed; bottom: 20px; right: 20px; background: #1a1a1a; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.75rem; opacity: 0; transition: opacity 0.3s; z-index: 1001; }
-    .save-indicator.show { opacity: 1; }
+    /* Form */
+    .form-group { margin-bottom: 0.75rem; }
+    .form-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem; display: block; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .form-input {
+      width: 100%; padding: 0.6rem; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-family: inherit; font-size: 0.85rem;
+    }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    textarea.form-input { resize: none; min-height: 60px; }
+    
+    /* Status Buttons */
+    .status-btns { display: flex; gap: 0.4rem; }
+    .status-btn {
+      flex: 1; padding: 0.5rem; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text-muted);
+      border-radius: 6px; font-size: 0.75rem; cursor: pointer;
+      font-family: inherit; transition: all 0.2s;
+    }
+    .status-btn.active { border-color: var(--accent); background: var(--accent-dim); color: var(--text); }
+    
+    /* Action Buttons */
+    .modal-actions { display: flex; gap: 0.6rem; margin-top: 1rem; }
+    .btn {
+      padding: 0.75rem 1rem; border: none; border-radius: 8px;
+      font-family: inherit; font-size: 0.85rem; cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-primary { flex: 1; background: var(--accent); color: #000; }
+    .btn-danger { background: none; border: 1px solid #ef4444; color: #ef4444; }
+    
+    /* Sync Status */
+    .sync-status {
+      position: fixed; bottom: calc(1rem + env(safe-area-inset-bottom)); 
+      left: 50%; transform: translateX(-50%);
+      background: var(--surface); padding: 0.5rem 1rem; border-radius: 20px;
+      font-size: 0.7rem; border: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0.5rem;
+      z-index: 50;
+    }
+    .sync-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .sync-dot.synced { background: var(--accent); }
+    .sync-dot.syncing { background: #f59e0b; animation: pulse 1s infinite; }
+    .sync-dot.error { background: #ef4444; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    
+    /* Phase Colors */
+    .phase-base { background: rgba(59,130,246,0.2); color: #60a5fa; }
+    .phase-build { background: rgba(139,92,246,0.2); color: #a78bfa; }
+    .phase-threshold { background: rgba(16,185,129,0.2); color: #34d399; }
+    .phase-vo2max { background: rgba(245,158,11,0.2); color: #fbbf24; }
+    .phase-race-specific { background: rgba(239,68,68,0.2); color: #f87171; }
+    .phase-taper { background: rgba(236,72,153,0.2); color: #f472b6; }
+    .phase-race { background: rgba(34,197,94,0.2); color: #4ade80; }
+    .phase-recovery { background: rgba(107,114,128,0.2); color: #9ca3af; }
+    .phase-vacation { background: rgba(100,116,139,0.15); color: #94a3b8; }
+    
+    /* Session Type Colors */
+    .type-lr { background: rgba(59,130,246,0.2); color: #60a5fa; }
+    .type-er { background: rgba(107,114,128,0.2); color: #9ca3af; }
+    .type-tr { background: rgba(245,158,11,0.2); color: #fbbf24; }
+    .type-br { background: rgba(139,92,246,0.2); color: #a78bfa; }
+    .type-vo2 { background: rgba(239,68,68,0.2); color: #f87171; }
+    .type-threshold { background: rgba(16,185,129,0.2); color: #34d399; }
+    .type-z2 { background: rgba(59,130,246,0.2); color: #60a5fa; }
+    .type-easy { background: rgba(107,114,128,0.2); color: #9ca3af; }
+    .type-rest { background: rgba(107,114,128,0.15); color: #6b7280; }
+    .type-race { background: rgba(34,197,94,0.2); color: #4ade80; }
+    .type-sharpener { background: rgba(236,72,153,0.2); color: #f472b6; }
+    
+    /* Bar Chart */
+    .bar-chart { display: flex; align-items: flex-end; gap: 2px; height: 100px; }
+    .bar-week { flex: 1; display: flex; flex-direction: column; align-items: center; }
+    .bar { width: 100%; border-radius: 2px 2px 0 0; min-height: 2px; }
+    .bar-label { font-size: 0.5rem; color: var(--text-muted); margin-top: 4px; }
+    
+    /* Legend */
+    .legend { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.75rem; }
+    .legend-item { display: flex; align-items: center; gap: 0.3rem; font-size: 0.65rem; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="header-top">
-      <div>
-        <h1>🎯 Sub-40 10K</h1>
-        <div class="date">Sep 6, 2026</div>
-      </div>
-      <div class="countdown">
-        <div class="countdown-num" id="weeksLeft">23</div>
-        <div class="countdown-label">weeks left</div>
-      </div>
-    </div>
-    <div class="stats-row">
-      <div class="stat-box"><div class="label">Week</div><div class="value" id="currentWeek">13</div></div>
-      <div class="stat-box"><div class="label">VO2</div><div class="value" id="vo2Pace">4:20</div></div>
-      <div class="stat-box"><div class="label">LT</div><div class="value" id="ltPace">4:45</div></div>
-      <div class="stat-box"><div class="label">Done</div><div class="value" id="doneCount">0/70</div></div>
-      <div class="stat-box"><div class="label">Km</div><div class="value" id="totalKm">0.0</div></div>
-    </div>
+  <div class="container" id="app"></div>
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal"></div>
   </div>
-  
-  <div class="nav">
-    <button class="active" data-tab="timeline">Timeline</button>
-    <button data-tab="charts">Charts</button>
-    <button data-tab="stats">Stats</button>
-    <button data-tab="paces">Paces</button>
+  <div class="sync-status" id="syncStatus">
+    <div class="sync-dot synced"></div>
+    <span>Synced</span>
   </div>
-  
-  <div class="content">
-    <div id="timeline-tab"></div>
-    <div id="charts-tab" style="display:none;"></div>
-    <div id="stats-tab" style="display:none;"></div>
-    <div id="paces-tab" style="display:none;"></div>
-  </div>
-  
-  <div class="modal-overlay" id="modal">
-    <div class="modal">
-      <div class="modal-header">
-        <h3>Log Workout</h3>
-        <button class="modal-close" onclick="closeModal()">×</button>
-      </div>
-      <div class="modal-planned" id="modalPlanned"></div>
-      <div class="modal-field">
-        <label>Status</label>
-        <div class="status-buttons" id="statusButtons"></div>
-      </div>
-      <div class="modal-row">
-        <div class="modal-field">
-          <label>Distance (km)</label>
-          <input type="text" id="inputDistance" placeholder="e.g. 8.5">
-        </div>
-        <div class="modal-field">
-          <label>Avg Pace</label>
-          <input type="text" id="inputPace" placeholder="e.g. 4:35">
-        </div>
-      </div>
-      <div class="modal-row">
-        <div class="modal-field">
-          <label>Total Time (min)</label>
-          <input type="text" id="inputTime" placeholder="e.g. 45">
-        </div>
-        <div class="modal-field">
-          <label>Avg HR (bpm)</label>
-          <input type="text" id="inputHR" placeholder="e.g. 165">
-        </div>
-      </div>
-      <div class="modal-field">
-        <label>Notes</label>
-        <textarea id="inputNotes" rows="2" placeholder="How did it feel? Any issues?"></textarea>
-      </div>
-      <div class="modal-actions">
-        <button class="btn-delete" id="btnDelete" onclick="deleteLog()" style="display:none;">Delete</button>
-        <button class="btn-save" onclick="saveLog()">Save Workout</button>
-      </div>
-    </div>
-  </div>
-  
-  <div class="save-indicator" id="saveIndicator">💾 Saved</div>
+</body>
+</html>
 
 <script>
-const WEEKS = [
-  {kw:13,phase:'recovery',dates:'Mar 23-29',volTarget:0,sessions:[{id:'w13s1',type:'rest',planned:'HM absorption week - rest and light movement only'}]},
-  {kw:14,phase:'recovery',dates:'Mar 30 - Apr 5',volTarget:18,sessions:[{id:'w14s1',type:'easy',planned:'5km @ 7:00+'},{id:'w14s2',type:'easy',planned:'6km @ 6:45-7:00'},{id:'w14s3',type:'easy',planned:'6-8km @ 6:40-6:50'}]},
-  {kw:15,phase:'recovery',dates:'Apr 6-12',volTarget:22,sessions:[{id:'w15s1',type:'easy',planned:'6km @ 6:40-6:50'},{id:'w15s2',type:'easy',planned:'6km easy + 4×100m strides'},{id:'w15s3',type:'z2',planned:'10km @ 6:40-6:50'}]},
-  {kw:16,phase:'base',dates:'Apr 13-19',volTarget:24,sessions:[{id:'w16s1',type:'vo2',planned:'8×400m @ 4:10-4:15 (100-102s), 90s rest'},{id:'w16s2',type:'threshold',planned:'2×8min @ 4:40-4:45, 2min rest'},{id:'w16s3',type:'z2',planned:'8km @ 6:30-6:45, HR <145'}]},
-  {kw:17,phase:'base',dates:'Apr 20-26',volTarget:26,sessions:[{id:'w17s1',type:'vo2',planned:'10×400m @ 4:10-4:15, 90s rest'},{id:'w17s2',type:'threshold',planned:'2×10min @ 4:40-4:45, 2min rest'},{id:'w17s3',type:'z2',planned:'10km @ 6:30-6:45, HR <145'}]},
-  {kw:18,phase:'base',dates:'Apr 27 - May 3',volTarget:28,sessions:[{id:'w18s1',type:'vo2',planned:'6×600m @ 4:05-4:10 (2:27-2:30), 2min rest'},{id:'w18s2',type:'threshold',planned:'2×12min @ 4:40, 2min rest'},{id:'w18s3',type:'z2',planned:'12km @ 6:30-6:45, HR <145'}]},
-  {kw:19,phase:'base',dates:'May 4-10',volTarget:26,sessions:[{id:'w19s1',type:'vo2',planned:'8×600m @ 4:05-4:10, 90s rest'},{id:'w19s2',type:'threshold',planned:'15min continuous @ 4:40'},{id:'w19s3',type:'z2',planned:'10km @ 6:25-6:40'}],notes:'End of base building - reassess paces'},
-  {kw:20,phase:'vo2max',dates:'May 11-17',volTarget:28,sessions:[{id:'w20s1',type:'vo2',planned:'6×800m @ 4:00-4:05 (3:12-3:16), 2min rest'},{id:'w20s2',type:'threshold',planned:'2×10min @ 4:35, 2min rest'},{id:'w20s3',type:'z2',planned:'12km @ 6:25-6:40'}]},
-  {kw:21,phase:'vo2max',dates:'May 18-24',volTarget:26,sessions:[{id:'w21s1',type:'vo2',planned:'10×400m @ 3:55-4:00 (94-96s), 90s rest'},{id:'w21s2',type:'threshold',planned:'2×12min @ 4:35, 2min rest'},{id:'w21s3',type:'z2',planned:'10km @ 6:20-6:35'}]},
-  {kw:22,phase:'vo2max',dates:'May 25-31',volTarget:30,sessions:[{id:'w22s1',type:'vo2',planned:'5×1km @ 4:00-4:05, 2min rest'},{id:'w22s2',type:'threshold',planned:'18min continuous @ 4:35'},{id:'w22s3',type:'z2',planned:'14km @ 6:20-6:35'}]},
-  {kw:23,phase:'vo2max',dates:'Jun 1-7',volTarget:26,sessions:[{id:'w23s1',type:'vo2',planned:'12×400m @ 3:55-4:00, 75s rest'},{id:'w23s2',type:'threshold',planned:'20min continuous @ 4:30-4:35'},{id:'w23s3',type:'z2',planned:'10km @ 6:20-6:35'}],notes:'End of VO2max block 1 - 5k TT recommended'},
-  {kw:24,phase:'threshold',dates:'Jun 8-14',volTarget:28,sessions:[{id:'w24s1',type:'vo2',planned:'6×800m @ 3:55-4:00, 2min rest'},{id:'w24s2',type:'threshold',planned:'2×15min @ 4:25-4:30, 3min rest'},{id:'w24s3',type:'z2',planned:'12km @ 6:15-6:30'}]},
-  {kw:25,phase:'threshold',dates:'Jun 15-21',volTarget:30,sessions:[{id:'w25s1',type:'vo2',planned:'8×600m @ 3:50-3:55, 90s rest'},{id:'w25s2',type:'threshold',planned:'25min continuous @ 4:25-4:30'},{id:'w25s3',type:'z2',planned:'14km @ 6:15-6:30'}]},
-  {kw:26,phase:'threshold',dates:'Jun 22-28',volTarget:28,sessions:[{id:'w26s1',type:'vo2',planned:'5×1km @ 3:55-4:00, 2min rest'},{id:'w26s2',type:'threshold',planned:'2×12min @ 4:20-4:25, 2min rest'},{id:'w26s3',type:'z2',planned:'12km @ 6:15-6:30'}]},
-  {kw:27,phase:'threshold',dates:'Jun 29 - Jul 5',volTarget:26,sessions:[{id:'w27s1',type:'vo2',planned:'10×400m @ 3:50-3:55, 75s rest'},{id:'w27s2',type:'threshold',planned:'3×10min @ 4:20, 2min rest'},{id:'w27s3',type:'z2',planned:'10km @ 6:10-6:25'}],notes:'End of threshold block - major reassessment'},
-  {kw:28,phase:'vo2max',dates:'Jul 6-12',volTarget:30,sessions:[{id:'w28s1',type:'vo2',planned:'6×800m @ 3:50-3:55 (3:04-3:08), 2min rest'},{id:'w28s2',type:'threshold',planned:'20min continuous @ 4:15-4:20'},{id:'w28s3',type:'z2',planned:'14km @ 6:10-6:25'}]},
-  {kw:29,phase:'vo2max',dates:'Jul 13-19',volTarget:28,sessions:[{id:'w29s1',type:'vo2',planned:'12×400m @ 3:45-3:50 (90-92s), 75s rest'},{id:'w29s2',type:'threshold',planned:'2×15min @ 4:15, 2min rest'},{id:'w29s3',type:'z2',planned:'12km @ 6:05-6:20'}]},
-  {kw:30,phase:'vo2max',dates:'Jul 20-26',volTarget:30,sessions:[{id:'w30s1',type:'vo2',planned:'5×1km @ 3:50-3:55, 2min rest'},{id:'w30s2',type:'threshold',planned:'25min continuous @ 4:15'},{id:'w30s3',type:'z2',planned:'14km @ 6:05-6:20'}]},
-  {kw:31,phase:'vo2max',dates:'Jul 27 - Aug 2',volTarget:26,sessions:[{id:'w31s1',type:'vo2',planned:'8×600m @ 3:45-3:50 (2:15-2:18), 90s rest'},{id:'w31s2',type:'threshold',planned:'2×12min @ 4:10-4:15, 2min rest'},{id:'w31s3',type:'z2',planned:'10km @ 6:00-6:15'}],notes:'End of VO2max block 2 - peak speed'},
-  {kw:32,phase:'raceSpecific',dates:'Aug 3-9',volTarget:28,sessions:[{id:'w32s1',type:'vo2',planned:'6×800m @ 3:50-3:55, 2min rest'},{id:'w32s2',type:'race',planned:'3×2km @ 4:00-4:05, 3min rest'},{id:'w32s3',type:'z2',planned:'12km @ 6:00-6:15'}]},
-  {kw:33,phase:'raceSpecific',dates:'Aug 10-16',volTarget:26,sessions:[{id:'w33s1',type:'vo2',planned:'10×400m @ 3:45-3:50, 75s rest'},{id:'w33s2',type:'race',planned:'4km continuous @ 4:00-4:05'},{id:'w33s3',type:'z2',planned:'10km @ 6:00-6:15'}]},
-  {kw:34,phase:'raceSpecific',dates:'Aug 17-23',volTarget:28,sessions:[{id:'w34s1',type:'vo2',planned:'5×1km @ 3:50-3:55, 2min rest'},{id:'w34s2',type:'race',planned:'5km @ 4:00-4:05 (DRESS REHEARSAL)'},{id:'w34s3',type:'z2',planned:'12km @ 6:00-6:15'}],notes:'Final hard week'},
-  {kw:35,phase:'taper',dates:'Aug 24-30',volTarget:20,sessions:[{id:'w35s1',type:'vo2',planned:'6×400m @ 3:45-3:50, 2min rest'},{id:'w35s2',type:'threshold',planned:'10min @ 4:10 (short & sharp)'},{id:'w35s3',type:'z2',planned:'8km @ 6:10-6:20'}]},
-  {kw:36,phase:'race',dates:'Aug 31 - Sep 6',volTarget:15,sessions:[{id:'w36s1',type:'easy',planned:'5km easy + 4×100m strides'},{id:'w36s2',type:'sharpener',planned:'4×400m @ 3:55, full rest'},{id:'w36s3',type:'race',planned:'🏁 10K RACE - SUB 40!'}]}
+// HM Plan Data - Weeks 1-10 (with actual logged sessions)
+const hmPlanWeeks1to10 = [
+  { 
+    week: 1, kw: 43, phase: 'base', dates: 'Oct 20-26', year: 2025, volumeTarget: 32,
+    sessions: [
+      { id: 'hm-w1s1', type: 'lr', planned: '10k (<150 HR)', logged: { status: 'completed', distance: '10.30', time: '66:34', pace: '6:27', hr: '150' }},
+      { id: 'hm-w1s2', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.00', time: '39:17', pace: '6:32', hr: '140' }},
+      { id: 'hm-w1s3', type: 'tr', planned: '3x8min @5:30', logged: { status: 'completed', distance: '9.15', time: '54:23', pace: '5:29', hr: '165' }},
+      { id: 'hm-w1s4', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.17', time: '39:32', pace: '6:25', hr: '145' }}
+    ]
+  },
+  { 
+    week: 2, kw: 44, phase: 'base', dates: 'Oct 27 - Nov 2', year: 2025, volumeTarget: 30,
+    sessions: [
+      { id: 'hm-w2s1', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.01', time: '40:51', pace: '6:47', hr: '133' }},
+      { id: 'hm-w2s2', type: 'tr', planned: '3x8min @5:25', logged: { status: 'completed', distance: '8.05', time: '47:03', pace: '5:24', hr: '160' }},
+      { id: 'hm-w2s3', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.01', time: '40:18', pace: '6:42', hr: '134' }},
+      { id: 'hm-w2s4', type: 'lr', planned: '10k (<150 HR)', logged: { status: 'completed', distance: '10.01', time: '64:12', pace: '6:25', hr: '140' }}
+    ]
+  },
+  { 
+    week: 3, kw: 45, phase: 'base', dates: 'Nov 3-9', year: 2025, volumeTarget: 34,
+    sessions: [
+      { id: 'hm-w3s1', type: 'tr', planned: '2x10min @5:20', logged: { status: 'completed', distance: '7.23', time: '41:59', pace: '5:16', hr: '161' }},
+      { id: 'hm-w3s2', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.01', time: '38:38', pace: '6:25', hr: '133' }},
+      { id: 'hm-w3s3', type: 'er', planned: '8k (130-145 HR)', logged: { status: 'completed', distance: '8.02', time: '51:11', pace: '6:23', hr: '134' }},
+      { id: 'hm-w3s4', type: 'lr', planned: '12k (<150 HR)', logged: { status: 'completed', distance: '12.06', time: '76:28', pace: '6:21', hr: '144' }}
+    ]
+  },
+  { 
+    week: 4, kw: 46, phase: 'base', dates: 'Nov 10-16', year: 2025, volumeTarget: 30,
+    sessions: [
+      { id: 'hm-w4s1', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.33', time: '39:17', pace: '6:13', hr: '141' }},
+      { id: 'hm-w4s2', type: 'tr', planned: '2x12min @5:15', logged: { status: 'completed', distance: '7.47', time: '42:57', pace: '5:12', hr: '162' }},
+      { id: 'hm-w4s3', type: 'lr', planned: '9k (<150 HR)', logged: { status: 'completed', distance: '9.01', time: '58:57', pace: '6:33', hr: '150' }},
+      { id: 'hm-w4s4', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.42', time: '41:43', pace: '6:30', hr: '138' }}
+    ]
+  },
+  { 
+    week: 5, kw: 47, phase: 'build', dates: 'Nov 17-23', year: 2025, volumeTarget: 32,
+    sessions: [
+      { id: 'hm-w5s1', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.22', time: '40:17', pace: '6:29', hr: '142' }},
+      { id: 'hm-w5s2', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.09', time: '39:01', pace: '6:24', hr: '136' }},
+      { id: 'hm-w5s3', type: 'tr', planned: '1x20min @5:10', logged: { status: 'completed', distance: '6.65', time: '38:38', pace: '5:07', hr: '158' }},
+      { id: 'hm-w5s4', type: 'lr', planned: '12k (<150 HR)', logged: { status: 'completed', distance: '12.09', time: '78:11', pace: '6:28', hr: '139' }}
+    ]
+  },
+  { 
+    week: 6, kw: 48, phase: 'build', dates: 'Nov 24-30', year: 2025, volumeTarget: 34,
+    sessions: [
+      { id: 'hm-w6s1', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.02', time: '41:00', pace: '6:48', hr: '134' }},
+      { id: 'hm-w6s2', type: 'tr', planned: '5k @5:05', logged: { status: 'completed', distance: '7.45', time: '40:59', pace: '5:01', hr: '163' }},
+      { id: 'hm-w6s3', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.16', time: '38:51', pace: '6:18', hr: '133' }},
+      { id: 'hm-w6s4', type: 'lr', planned: '14k (<150 HR)', logged: { status: 'completed', distance: '14.11', time: '92:34', pace: '6:34', hr: '136' }}
+    ]
+  },
+  { 
+    week: 7, kw: 49, phase: 'build', dates: 'Dec 1-7', year: 2025, volumeTarget: 35,
+    sessions: [
+      { id: 'hm-w7s1', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.26', time: '40:29', pace: '6:28', hr: '138' }},
+      { id: 'hm-w7s2', type: 'tr', planned: '4x6min @5:05', logged: { status: 'completed', distance: '8.29', time: '47:57', pace: '5:01', hr: '163' }},
+      { id: 'hm-w7s3', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.05', time: '40:15', pace: '6:39', hr: '139' }},
+      { id: 'hm-w7s4', type: 'lr', planned: '14k (<150 HR)', logged: { status: 'completed', distance: '13.89', time: '94:47', pace: '6:50', hr: '139' }}
+    ]
+  },
+  { 
+    week: 8, kw: 50, phase: 'build', dates: 'Dec 8-14', year: 2025, volumeTarget: 32,
+    sessions: [
+      { id: 'hm-w8s1', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.21', time: '41:02', pace: '6:37', hr: '130' }},
+      { id: 'hm-w8s2', type: 'tr', planned: '3x8min @5:00', logged: { status: 'completed', distance: '7.50', time: '46:01', pace: '4:59', hr: '168' }},
+      { id: 'hm-w8s3', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.19', time: '42:16', pace: '6:50', hr: '132' }},
+      { id: 'hm-w8s4', type: 'lr', planned: '12k (<150 HR)', logged: { status: 'completed', distance: '12.01', time: '82:25', pace: '6:52', hr: '125' }}
+    ]
+  },
+  { 
+    week: 9, kw: 51, phase: 'build', dates: 'Dec 15-21', year: 2025, volumeTarget: 38,
+    notes: 'Pre-vacation peak week',
+    sessions: [
+      { id: 'hm-w9s1', type: 'lr', planned: '16k (<150 HR)', logged: { status: 'completed', distance: '16.12', time: '109:13', pace: '6:46', hr: '135' }},
+      { id: 'hm-w9s2', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.13', time: '40:39', pace: '6:38', hr: '135' }},
+      { id: 'hm-w9s3', type: 'tr', planned: '3x8min @4:55', logged: { status: 'completed', distance: '8.21', time: '46:02', pace: '4:46', hr: '166' }},
+      { id: 'hm-w9s4', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.04', time: '38:09', pace: '6:19', hr: '125' }}
+    ]
+  },
+  // VACATION WEEKS (KW52-KW1)
+  { 
+    week: 'V1', kw: 52, phase: 'vacation', dates: 'Dec 22-28', year: 2025, volumeTarget: 0,
+    notes: 'Vacation Week 1',
+    sessions: []
+  },
+  { 
+    week: 'V2', kw: 1, phase: 'vacation', dates: 'Dec 29 - Jan 4', year: 2026, volumeTarget: 0,
+    notes: 'Vacation Week 2',
+    sessions: []
+  },
+  { 
+    week: 10, kw: 2, phase: 'build', dates: 'Jan 5-11', year: 2026, volumeTarget: 35,
+    notes: 'Post-vacation return',
+    sessions: [
+      { id: 'hm-w10s1', type: 'er', planned: '6k (130-145 HR)', logged: { status: 'completed', distance: '6.03', time: '41:58', pace: '6:58', hr: '133' }},
+      { id: 'hm-w10s2', type: 'lr', planned: '14k (<150 HR)', logged: { status: 'completed', distance: '13.92', time: '94:10', pace: '6:46', hr: '140' }},
+      { id: 'hm-w10s3', type: 'tr', planned: '3x8min @4:50', logged: { status: 'completed', distance: '7.86', time: '44:45', pace: '4:55', hr: '169' }},
+      { id: 'hm-w10s4', type: 'br', planned: '55% FTP', logged: { status: 'completed', distance: '29.23', time: '41:02', pace: '120W', hr: '116' }}
+    ]
+  }
 ];
 
-const PHASES = {
-  recovery: {color:'#B4B2A9',bg:'#F1EFE8',text:'#444441',name:'Recovery'},
-  base: {color:'#85B7EB',bg:'#E6F1FB',text:'#0C447C',name:'Base'},
-  vo2max: {color:'#AFA9EC',bg:'#EEEDFE',text:'#3C3489',name:'VO2max'},
-  threshold: {color:'#5DCAA5',bg:'#E1F5EE',text:'#085041',name:'Threshold'},
-  raceSpecific: {color:'#F0997B',bg:'#FAECE7',text:'#712B13',name:'Race-spec'},
-  taper: {color:'#FAC775',bg:'#FAEEDA',text:'#633806',name:'Taper'},
-  race: {color:'#97C459',bg:'#EAF3DE',text:'#27500A',name:'Race'}
-};
-
-const TYPES = {
-  vo2: {bg:'#EEEDFE',text:'#3C3489',label:'VO2max'},
-  threshold: {bg:'#E1F5EE',text:'#085041',label:'Threshold'},
-  z2: {bg:'#E6F1FB',text:'#0C447C',label:'Zone 2'},
-  easy: {bg:'#F1EFE8',text:'#444441',label:'Easy'},
-  rest: {bg:'#F1EFE8',text:'#444441',label:'Rest'},
-  race: {bg:'#EAF3DE',text:'#27500A',label:'Race'},
-  sharpener: {bg:'#FAEEDA',text:'#633806',label:'Sharpener'}
-};
-
-let data = {
-  sessions: {},
-  paces: {vo2:'4:20',threshold:'4:45',easy:'6:30'},
-  lastUpdated: null
-};
-
-let currentTab = 'timeline';
-let chartTab = 'paces';
-let expandedWeek = 13;
-let editingSession = null;
-let formStatus = 'completed';
-
-// Load data
-function loadData() {
-  const saved = localStorage.getItem('training-data');
-  if (saved) {
-    data = JSON.parse(saved);
+// HM Plan Data - Weeks 11-20 + Race
+const hmPlanWeeks11to20 = [
+  { 
+    week: 11, kw: 3, phase: 'build', dates: 'Jan 12-18', year: 2026, volumeTarget: 38,
+    sessions: [
+      { id: 'hm-w11s1', type: 'br', planned: '55% FTP', logged: { status: 'completed', distance: '22.69', time: '40:04', pace: '130W', hr: '118' }},
+      { id: 'hm-w11s2', type: 'tr', planned: '5x1km @4:40', logged: { status: 'completed', distance: '8.15', time: '46:44', pace: '4:40', hr: '162' }},
+      { id: 'hm-w11s3', type: 'br', planned: '60% FTP', logged: { status: 'completed', distance: '24.04', time: '40:02', pace: '140W', hr: '119' }},
+      { id: 'hm-w11s4', type: 'lr', planned: '16k (<150 HR)', logged: { status: 'completed', distance: '16.14', time: '103:45', pace: '6:26', hr: '140' }}
+    ]
+  },
+  { 
+    week: 12, kw: 4, phase: 'threshold', dates: 'Jan 19-25', year: 2026, volumeTarget: 40,
+    sessions: [
+      { id: 'hm-w12s1', type: 'tr', planned: '1x6k @4:50', logged: { status: 'completed', distance: '8.56', time: '45:14', pace: '4:46', hr: '169' }},
+      { id: 'hm-w12s2', type: 'br', planned: '70% FTP', logged: { status: 'completed', distance: '25.70', time: '42:03', pace: '160W', hr: '130' }},
+      { id: 'hm-w12s3', type: 'br', planned: '70% FTP', logged: { status: 'completed', distance: '27.33', time: '42:00', pace: '160W', hr: '131' }},
+      { id: 'hm-w12s4', type: 'lr', planned: '18k (<150 HR)', logged: { status: 'completed', distance: '18.01', time: '117:49', pace: '6:32', hr: '147' }}
+    ]
+  },
+  { 
+    week: 13, kw: 5, phase: 'threshold', dates: 'Jan 26 - Feb 1', year: 2026, volumeTarget: 42,
+    sessions: [
+      { id: 'hm-w13s1', type: 'br', planned: '70% FTP', logged: { status: 'completed', distance: '28.02', time: '42:05', pace: '160W', hr: '133' }},
+      { id: 'hm-w13s2', type: 'tr', planned: '2x12min @4:45', logged: { status: 'completed', distance: '7.47', time: '39:54', pace: '4:42', hr: '166' }},
+      { id: 'hm-w13s3', type: 'er', planned: '6k (125-140 HR)', logged: { status: 'completed', distance: '6.05', time: '39:50', pace: '6:35', hr: '128' }},
+      { id: 'hm-w13s4', type: 'lr', planned: '18k (2k @5:00)', logged: { status: 'completed', distance: '17.90', time: '113:16', pace: '6:30', hr: '136' }}
+    ]
+  },
+  { 
+    week: 14, kw: 6, phase: 'threshold', dates: 'Feb 2-8', year: 2026, volumeTarget: 45,
+    notes: 'VO2max breakthrough - 4:20 pace!',
+    sessions: [
+      { id: 'hm-w14s1', type: 'br', planned: '70% FTP', logged: { status: 'completed', distance: '23.42', time: '38:02', pace: '160W', hr: '132' }},
+      { id: 'hm-w14s2', type: 'er', planned: '6k (125-140 HR)', logged: { status: 'completed', distance: '6.09', time: '39:34', pace: '6:29', hr: '133' }},
+      { id: 'hm-w14s3', type: 'tr', planned: '6x1k @4:25', logged: { status: 'completed', distance: '9.15', time: '51:52', pace: '4:20', hr: '174' }},
+      { id: 'hm-w14s4', type: 'lr', planned: '20k (<150 HR)', logged: { status: 'completed', distance: '20.14', time: '134:15', pace: '6:40', hr: '125' }}
+    ]
+  },
+  { 
+    week: 15, kw: 7, phase: 'threshold', dates: 'Feb 9-15', year: 2026, volumeTarget: 40,
+    sessions: [
+      { id: 'hm-w15s1', type: 'br', planned: '70% FTP', logged: { status: 'completed', distance: '24.33', time: '41:03', pace: '160W', hr: '131' }},
+      { id: 'hm-w15s2', type: 'lr', planned: '14k (<150 HR)', logged: { status: 'completed', distance: '14.28', time: '94:23', pace: '6:37', hr: '139' }},
+      { id: 'hm-w15s3', type: 'br', planned: '65% FTP', logged: { status: 'completed', distance: '24.09', time: '40:07', pace: '155W', hr: '123' }},
+      { id: 'hm-w15s4', type: 'tr', planned: '5x1km @4:35', logged: { status: 'completed', distance: '7.58', time: '42:03', pace: '4:30', hr: '168' }}
+    ]
+  },
+  { 
+    week: 16, kw: 8, phase: 'recovery', dates: 'Feb 16-22', year: 2026, volumeTarget: 10,
+    notes: 'Business trip - week mostly skipped',
+    sessions: [
+      { id: 'hm-w16s1', type: 'br', planned: '60% FTP (only session)', logged: { status: 'completed', distance: '23.66', time: '40:05', pace: '150W', hr: '131' }}
+    ]
+  },
+  { 
+    week: 17, kw: 9, phase: 'race-specific', dates: 'Feb 23 - Mar 1', year: 2026, volumeTarget: 32,
+    notes: 'Post-break rebuild',
+    sessions: [
+      { id: 'hm-w17s1', type: 'er', planned: '6k (125-140 HR)', logged: { status: 'completed', distance: '6.11', time: '42:46', pace: '7:00', hr: '128' }},
+      { id: 'hm-w17s2', type: 'tr', planned: '4x1k @4:30', logged: { status: 'completed', distance: '6.28', time: '34:27', pace: '4:25', hr: '169' }},
+      { id: 'hm-w17s3', type: 'lr', planned: '16k (2k @4:45)', logged: { status: 'completed', distance: '16.04', time: '102:26', pace: '6:37', hr: '137' }}
+    ]
+  },
+  { 
+    week: 18, kw: 10, phase: 'race-specific', dates: 'Mar 2-8', year: 2026, volumeTarget: 35,
+    notes: 'Peak week - final hard efforts',
+    sessions: [
+      { id: 'hm-w18s1', type: 'er', planned: '6k (125-140 HR)', logged: { status: 'completed', distance: '6.22', time: '39:37', pace: '6:22', hr: '133' }},
+      { id: 'hm-w18s2', type: 'er', planned: '6k (125-140 HR)', logged: { status: 'completed', distance: '6.17', time: '40:37', pace: '6:35', hr: '132' }},
+      { id: 'hm-w18s3', type: 'tr', planned: '5k @4:40', logged: { status: 'completed', distance: '6.27', time: '34:00', pace: '4:37', hr: '174' }},
+      { id: 'hm-w18s4', type: 'lr', planned: '14k (2k @4:40)', logged: { status: 'completed', distance: '14.30', time: '90:45', pace: '6:37', hr: '140' }}
+    ]
+  },
+  { 
+    week: 19, kw: 11, phase: 'taper', dates: 'Mar 9-15', year: 2026, volumeTarget: 22,
+    sessions: [
+      { id: 'hm-w19s1', type: 'er', planned: '6k Taper', logged: { status: 'completed', distance: '6.41', time: '44:05', pace: '6:53', hr: '127' }},
+      { id: 'hm-w19s2', type: 'tr', planned: '4x800m @4:25', logged: { status: 'completed', distance: '6.02', time: '35:55', pace: '4:22', hr: '164' }},
+      { id: 'hm-w19s3', type: 'lr', planned: '8k Taper', logged: { status: 'completed', distance: '8.21', time: '54:49', pace: '6:41', hr: '129' }}
+    ]
+  },
+  { 
+    week: 20, kw: 12, phase: 'race', dates: 'Mar 16-22', year: 2026, volumeTarget: 30,
+    notes: 'RACE WEEK!',
+    sessions: [
+      { id: 'hm-w20s1', type: 'tr', planned: '2x1k @4:35 Taper', logged: { status: 'completed', distance: '4.52', time: '26:12', pace: '4:31', hr: '163' }},
+      { id: 'hm-w20s2', type: 'er', planned: 'Pre-race shakeout', logged: { status: 'completed', distance: '3.77', time: '25:38', pace: '6:48', hr: '136' }},
+      { id: 'hm-w20s3', type: 'race', planned: '🏁 FRANKFURT HM - SUB 100!', logged: { status: 'completed', distance: '21.34', time: '102:37', pace: '4:49', hr: '179', notes: 'Official: 1:42:37. Blew up km 17-21. Lesson learned!' }}
+    ]
   }
-  updateUI();
-}
+];
 
-// Save data
-function saveData() {
-  data.lastUpdated = new Date().toISOString();
-  localStorage.setItem('training-data', JSON.stringify(data));
-  showSaveIndicator();
-  exportJSON();
-}
+// Combine all HM weeks
+const hmPlanWeeks = [...hmPlanWeeks1to10, ...hmPlanWeeks11to20];
 
-function showSaveIndicator() {
-  const ind = document.getElementById('saveIndicator');
-  ind.classList.add('show');
-  setTimeout(() => ind.classList.remove('show'), 1500);
-}
+// HM Plan Summary
+const hmPlan = {
+  id: 'hm',
+  name: 'Sub-100 HM',
+  status: 'completed',
+  race: 'Frankfurt Half Marathon',
+  raceDate: '2026-03-22',
+  result: '1:42:37',
+  goal: 'Sub 1:40:00',
+  weeks: hmPlanWeeks,
+  startPaces: { tempo: '5:30', easy: '6:30' },
+  endPaces: { tempo: '4:20', easy: '6:20' },
+  totalRunningSessions: 63,
+  totalBikingSessions: 10,
+  totalRunningKm: 549.6,
+  totalBikingKm: 252.5,
+  totalTimeMinutes: 3889
+};
 
-// Export JSON for Claude to read
-function exportJSON() {
-  const exportData = {
-    ...data,
-    exportedAt: new Date().toISOString(),
-    stats: getTotalStats()
-  };
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
-  // Create download link for manual export if needed
-  const url = URL.createObjectURL(blob);
-  const existing = document.getElementById('exportLink');
-  if (existing) existing.remove();
-  const a = document.createElement('a');
-  a.id = 'exportLink';
-  a.href = url;
-  a.download = 'training_log.json';
-  a.style.display = 'none';
-  document.body.appendChild(a);
-}
-
-// Stats
-function getTotalStats() {
-  let completed = 0, total = 0, distance = 0, time = 0;
-  WEEKS.forEach(w => w.sessions.forEach(s => {
-    total++;
-    const log = data.sessions[s.id];
-    if (log?.status === 'completed') completed++;
-    if (log?.distance) distance += parseFloat(log.distance);
-    if (log?.time) time += parseFloat(log.time);
-  }));
-  return {completed, total, distance, time};
-}
-
-function getWeekStats(week) {
-  let completed = 0, distance = 0, time = 0;
-  week.sessions.forEach(s => {
-    const log = data.sessions[s.id];
-    if (log?.status === 'completed') completed++;
-    if (log?.distance) distance += parseFloat(log.distance);
-    if (log?.time) time += parseFloat(log.time);
-  });
-  return {completed, total: week.sessions.length, distance, time};
-}
-
-function formatTime(mins) {
-  if (!mins) return '-';
-  const h = Math.floor(mins / 60);
-  const m = Math.round(mins % 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
-
-// Update UI
-function updateUI() {
-  const stats = getTotalStats();
-  document.getElementById('vo2Pace').textContent = data.paces.vo2;
-  document.getElementById('ltPace').textContent = data.paces.threshold;
-  document.getElementById('doneCount').textContent = `${stats.completed}/${stats.total}`;
-  document.getElementById('totalKm').textContent = stats.distance.toFixed(1);
-  
-  renderTimeline();
-  renderCharts();
-  renderStats();
-  renderPaces();
-}
-
-// Timeline
-function renderTimeline() {
-  const container = document.getElementById('timeline-tab');
-  let html = `<div class="legend">`;
-  Object.entries(PHASES).forEach(([k,p]) => {
-    html += `<div class="legend-item"><div class="legend-dot" style="background:${p.color}"></div>${p.name}</div>`;
-  });
-  html += `</div>`;
-  
-  WEEKS.forEach(w => {
-    const phase = PHASES[w.phase];
-    const ws = getWeekStats(w);
-    const isExp = expandedWeek === w.kw;
-    const isCur = w.kw === 13;
-    
-    html += `<div class="week-card${isCur?' current':''}">`;
-    html += `<div class="week-header" style="background:${phase.bg}" onclick="toggleWeek(${w.kw})">`;
-    html += `<div class="week-header-left">`;
-    html += `<span class="week-kw" style="color:${phase.text}">KW${w.kw}</span>`;
-    html += `<span class="week-dates" style="color:${phase.text}">${w.dates}</span>`;
-    html += `</div>`;
-    html += `<div class="week-header-right">`;
-    html += `<span class="week-progress${ws.completed===ws.total&&ws.total>0?' complete':''}">${ws.completed}/${ws.total}</span>`;
-    html += `<span class="phase-badge" style="background:${phase.bg};color:${phase.text}">${phase.name}</span>`;
-    html += `<span class="week-arrow${isExp?' expanded':''}">▼</span>`;
-    html += `</div></div>`;
-    
-    html += `<div class="week-body${isExp?' expanded':''}">`;
-    if (ws.distance > 0) {
-      html += `<div class="week-summary">📏 ${ws.distance.toFixed(1)} km ⏱️ ${formatTime(ws.time)}</div>`;
+// 10K Plan Data - Sub-40 Goal (KW13-KW36, 2026)
+const tenKPlan = {
+  id: '10k',
+  name: 'Sub-40 10K',
+  status: 'active',
+  race: '10K Race',
+  raceDate: '2026-09-06',
+  goal: 'Sub 40:00 (4:00/km)',
+  startPaces: { vo2: '4:20', threshold: '4:45', easy: '6:30' },
+  targetPaces: { vo2: '3:45', threshold: '4:00', easy: '5:50' },
+  weeks: [
+    // Recovery Phase (KW13-15)
+    { 
+      week: 1, kw: 13, phase: 'recovery', dates: 'Mar 23-29', year: 2026,
+      notes: 'HM absorption - rest only',
+      sessions: [
+        { id: '10k-w1s1', type: 'rest', planned: 'Full rest - absorb HM effort' }
+      ]
+    },
+    { 
+      week: 2, kw: 14, phase: 'recovery', dates: 'Mar 30 - Apr 5', year: 2026,
+      volumeTarget: 18,
+      sessions: [
+        { id: '10k-w2s1', type: 'easy', planned: '5km @ 7:00+' },
+        { id: '10k-w2s2', type: 'easy', planned: '6km @ 6:45-7:00' },
+        { id: '10k-w2s3', type: 'easy', planned: '6-8km @ 6:40-6:50' }
+      ]
+    },
+    { 
+      week: 3, kw: 15, phase: 'recovery', dates: 'Apr 6-12', year: 2026,
+      volumeTarget: 22,
+      sessions: [
+        { id: '10k-w3s1', type: 'easy', planned: '6km @ 6:40-6:50' },
+        { id: '10k-w3s2', type: 'easy', planned: '6km easy + 4×100m strides' },
+        { id: '10k-w3s3', type: 'z2', planned: '10km @ 6:40-6:50' }
+      ]
+    },
+    // Base Building (KW16-19)
+    { 
+      week: 4, kw: 16, phase: 'base', dates: 'Apr 13-19', year: 2026,
+      volumeTarget: 24, vo2Target: '4:15', thresholdTarget: '4:45',
+      sessions: [
+        { id: '10k-w4s1', type: 'vo2', planned: '8×400m @ 4:10-4:15 (100-102s), 90s rest' },
+        { id: '10k-w4s2', type: 'threshold', planned: '2×8min @ 4:40-4:45, 2min rest' },
+        { id: '10k-w4s3', type: 'z2', planned: '8km @ 6:30-6:45, HR <145' }
+      ]
+    },
+    { 
+      week: 5, kw: 17, phase: 'base', dates: 'Apr 20-26', year: 2026,
+      volumeTarget: 26, vo2Target: '4:15', thresholdTarget: '4:45',
+      sessions: [
+        { id: '10k-w5s1', type: 'vo2', planned: '10×400m @ 4:10-4:15, 90s rest' },
+        { id: '10k-w5s2', type: 'threshold', planned: '2×10min @ 4:40-4:45, 2min rest' },
+        { id: '10k-w5s3', type: 'z2', planned: '10km @ 6:30-6:45, HR <145' }
+      ]
+    },
+    { 
+      week: 6, kw: 18, phase: 'base', dates: 'Apr 27 - May 3', year: 2026,
+      volumeTarget: 28, vo2Target: '4:10', thresholdTarget: '4:40',
+      sessions: [
+        { id: '10k-w6s1', type: 'vo2', planned: '6×600m @ 4:05-4:10 (2:27-2:30), 2min rest' },
+        { id: '10k-w6s2', type: 'threshold', planned: '2×12min @ 4:40, 2min rest' },
+        { id: '10k-w6s3', type: 'z2', planned: '12km @ 6:30-6:45, HR <145' }
+      ]
+    },
+    { 
+      week: 7, kw: 19, phase: 'base', dates: 'May 4-10', year: 2026,
+      volumeTarget: 26, vo2Target: '4:10', thresholdTarget: '4:40',
+      notes: 'End of base building - reassess paces',
+      sessions: [
+        { id: '10k-w7s1', type: 'vo2', planned: '8×600m @ 4:05-4:10, 90s rest' },
+        { id: '10k-w7s2', type: 'threshold', planned: '15min continuous @ 4:40' },
+        { id: '10k-w7s3', type: 'z2', planned: '10km @ 6:25-6:40' }
+      ]
+    },
+    // VO2max Block 1 (KW20-23)
+    { 
+      week: 8, kw: 20, phase: 'vo2max', dates: 'May 11-17', year: 2026,
+      volumeTarget: 28, vo2Target: '4:05', thresholdTarget: '4:35',
+      sessions: [
+        { id: '10k-w8s1', type: 'vo2', planned: '6×800m @ 4:00-4:05 (3:12-3:16), 2min rest' },
+        { id: '10k-w8s2', type: 'threshold', planned: '2×10min @ 4:35, 2min rest' },
+        { id: '10k-w8s3', type: 'z2', planned: '12km @ 6:25-6:40' }
+      ]
+    },
+    { 
+      week: 9, kw: 21, phase: 'vo2max', dates: 'May 18-24', year: 2026,
+      volumeTarget: 26, vo2Target: '4:00', thresholdTarget: '4:35',
+      sessions: [
+        { id: '10k-w9s1', type: 'vo2', planned: '10×400m @ 3:55-4:00 (94-96s), 90s rest' },
+        { id: '10k-w9s2', type: 'threshold', planned: '2×12min @ 4:35, 2min rest' },
+        { id: '10k-w9s3', type: 'z2', planned: '10km @ 6:20-6:35' }
+      ]
+    },
+    { 
+      week: 10, kw: 22, phase: 'vo2max', dates: 'May 25-31', year: 2026,
+      volumeTarget: 30, vo2Target: '4:05', thresholdTarget: '4:35',
+      sessions: [
+        { id: '10k-w10s1', type: 'vo2', planned: '5×1km @ 4:00-4:05, 2min rest' },
+        { id: '10k-w10s2', type: 'threshold', planned: '18min continuous @ 4:35' },
+        { id: '10k-w10s3', type: 'z2', planned: '14km @ 6:20-6:35' }
+      ]
+    },
+    { 
+      week: 11, kw: 23, phase: 'vo2max', dates: 'Jun 1-7', year: 2026,
+      volumeTarget: 26, vo2Target: '4:00', thresholdTarget: '4:33',
+      notes: 'End of VO2max block 1 - 5k TT recommended',
+      sessions: [
+        { id: '10k-w11s1', type: 'vo2', planned: '12×400m @ 3:55-4:00, 75s rest' },
+        { id: '10k-w11s2', type: 'threshold', planned: '20min continuous @ 4:30-4:35' },
+        { id: '10k-w11s3', type: 'z2', planned: '10km @ 6:20-6:35' }
+      ]
+    },
+    // Threshold Block (KW24-27)
+    { 
+      week: 12, kw: 24, phase: 'threshold', dates: 'Jun 8-14', year: 2026,
+      volumeTarget: 28, vo2Target: '4:00', thresholdTarget: '4:28',
+      sessions: [
+        { id: '10k-w12s1', type: 'vo2', planned: '6×800m @ 3:55-4:00, 2min rest' },
+        { id: '10k-w12s2', type: 'threshold', planned: '2×15min @ 4:25-4:30, 3min rest' },
+        { id: '10k-w12s3', type: 'z2', planned: '12km @ 6:15-6:30' }
+      ]
+    },
+    { 
+      week: 13, kw: 25, phase: 'threshold', dates: 'Jun 15-21', year: 2026,
+      volumeTarget: 30, vo2Target: '3:55', thresholdTarget: '4:28',
+      sessions: [
+        { id: '10k-w13s1', type: 'vo2', planned: '8×600m @ 3:50-3:55, 90s rest' },
+        { id: '10k-w13s2', type: 'threshold', planned: '25min continuous @ 4:25-4:30' },
+        { id: '10k-w13s3', type: 'z2', planned: '14km @ 6:15-6:30' }
+      ]
+    },
+    { 
+      week: 14, kw: 26, phase: 'threshold', dates: 'Jun 22-28', year: 2026,
+      volumeTarget: 28, vo2Target: '4:00', thresholdTarget: '4:23',
+      sessions: [
+        { id: '10k-w14s1', type: 'vo2', planned: '5×1km @ 3:55-4:00, 2min rest' },
+        { id: '10k-w14s2', type: 'threshold', planned: '2×12min @ 4:20-4:25, 2min rest' },
+        { id: '10k-w14s3', type: 'z2', planned: '12km @ 6:15-6:30' }
+      ]
+    },
+    { 
+      week: 15, kw: 27, phase: 'threshold', dates: 'Jun 29 - Jul 5', year: 2026,
+      volumeTarget: 26, vo2Target: '3:55', thresholdTarget: '4:20',
+      notes: 'End of threshold block - major reassessment',
+      sessions: [
+        { id: '10k-w15s1', type: 'vo2', planned: '10×400m @ 3:50-3:55, 75s rest' },
+        { id: '10k-w15s2', type: 'threshold', planned: '3×10min @ 4:20, 2min rest' },
+        { id: '10k-w15s3', type: 'z2', planned: '10km @ 6:10-6:25' }
+      ]
+    },
+    // VO2max Block 2 (KW28-31)
+    { 
+      week: 16, kw: 28, phase: 'vo2max', dates: 'Jul 6-12', year: 2026,
+      volumeTarget: 30, vo2Target: '3:55', thresholdTarget: '4:18',
+      sessions: [
+        { id: '10k-w16s1', type: 'vo2', planned: '6×800m @ 3:50-3:55 (3:04-3:08), 2min rest' },
+        { id: '10k-w16s2', type: 'threshold', planned: '20min continuous @ 4:15-4:20' },
+        { id: '10k-w16s3', type: 'z2', planned: '14km @ 6:10-6:25' }
+      ]
+    },
+    { 
+      week: 17, kw: 29, phase: 'vo2max', dates: 'Jul 13-19', year: 2026,
+      volumeTarget: 28, vo2Target: '3:50', thresholdTarget: '4:15',
+      sessions: [
+        { id: '10k-w17s1', type: 'vo2', planned: '12×400m @ 3:45-3:50 (90-92s), 75s rest' },
+        { id: '10k-w17s2', type: 'threshold', planned: '2×15min @ 4:15, 2min rest' },
+        { id: '10k-w17s3', type: 'z2', planned: '12km @ 6:05-6:20' }
+      ]
+    },
+    { 
+      week: 18, kw: 30, phase: 'vo2max', dates: 'Jul 20-26', year: 2026,
+      volumeTarget: 30, vo2Target: '3:55', thresholdTarget: '4:15',
+      sessions: [
+        { id: '10k-w18s1', type: 'vo2', planned: '5×1km @ 3:50-3:55, 2min rest' },
+        { id: '10k-w18s2', type: 'threshold', planned: '25min continuous @ 4:15' },
+        { id: '10k-w18s3', type: 'z2', planned: '14km @ 6:05-6:20' }
+      ]
+    },
+    { 
+      week: 19, kw: 31, phase: 'vo2max', dates: 'Jul 27 - Aug 2', year: 2026,
+      volumeTarget: 26, vo2Target: '3:50', thresholdTarget: '4:13',
+      notes: 'End of VO2max block 2 - peak speed',
+      sessions: [
+        { id: '10k-w19s1', type: 'vo2', planned: '8×600m @ 3:45-3:50 (2:15-2:18), 90s rest' },
+        { id: '10k-w19s2', type: 'threshold', planned: '2×12min @ 4:10-4:15, 2min rest' },
+        { id: '10k-w19s3', type: 'z2', planned: '10km @ 6:00-6:15' }
+      ]
+    },
+    // Race-Specific (KW32-34)
+    { 
+      week: 20, kw: 32, phase: 'race-specific', dates: 'Aug 3-9', year: 2026,
+      volumeTarget: 28, vo2Target: '3:55', thresholdTarget: '4:05',
+      sessions: [
+        { id: '10k-w20s1', type: 'vo2', planned: '6×800m @ 3:50-3:55, 2min rest' },
+        { id: '10k-w20s2', type: 'race', planned: '3×2km @ 4:00-4:05, 3min rest' },
+        { id: '10k-w20s3', type: 'z2', planned: '12km @ 6:00-6:15' }
+      ]
+    },
+    { 
+      week: 21, kw: 33, phase: 'race-specific', dates: 'Aug 10-16', year: 2026,
+      volumeTarget: 26, vo2Target: '3:50', thresholdTarget: '4:05',
+      sessions: [
+        { id: '10k-w21s1', type: 'vo2', planned: '10×400m @ 3:45-3:50, 75s rest' },
+        { id: '10k-w21s2', type: 'race', planned: '4km continuous @ 4:00-4:05' },
+        { id: '10k-w21s3', type: 'z2', planned: '10km @ 6:00-6:15' }
+      ]
+    },
+    { 
+      week: 22, kw: 34, phase: 'race-specific', dates: 'Aug 17-23', year: 2026,
+      volumeTarget: 28, vo2Target: '3:55', thresholdTarget: '4:05',
+      notes: 'Final hard week - DRESS REHEARSAL',
+      sessions: [
+        { id: '10k-w22s1', type: 'vo2', planned: '5×1km @ 3:50-3:55, 2min rest' },
+        { id: '10k-w22s2', type: 'race', planned: '5km @ 4:00-4:05 (DRESS REHEARSAL)' },
+        { id: '10k-w22s3', type: 'z2', planned: '12km @ 6:00-6:15' }
+      ]
+    },
+    // Taper (KW35)
+    { 
+      week: 23, kw: 35, phase: 'taper', dates: 'Aug 24-30', year: 2026,
+      volumeTarget: 20, vo2Target: '3:50', thresholdTarget: '4:10',
+      sessions: [
+        { id: '10k-w23s1', type: 'vo2', planned: '6×400m @ 3:45-3:50, 2min rest' },
+        { id: '10k-w23s2', type: 'threshold', planned: '10min @ 4:10 (short & sharp)' },
+        { id: '10k-w23s3', type: 'z2', planned: '8km @ 6:10-6:20' }
+      ]
+    },
+    // Race Week (KW36)
+    { 
+      week: 24, kw: 36, phase: 'race', dates: 'Aug 31 - Sep 6', year: 2026,
+      volumeTarget: 15, vo2Target: '3:55', thresholdTarget: '4:00',
+      notes: '🏁 RACE WEEK - GO GET THAT SUB-40!',
+      sessions: [
+        { id: '10k-w24s1', type: 'easy', planned: '5km easy + 4×100m strides' },
+        { id: '10k-w24s2', type: 'sharpener', planned: '4×400m @ 3:55, full rest' },
+        { id: '10k-w24s3', type: 'race', planned: '🏁 10K RACE - SUB 40!' }
+      ]
     }
+  ]
+};
+
+// Gist Configuration
+const GIST_ID = '69ad7722fb409db302c4220c13c074c3';
+const GITHUB_TOKEN = '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';
+
+// App State
+let state = {
+  activePlan: '10k',
+  plans: { hm: hmPlan, '10k': tenKPlan },
+  sessions: {},
+  paces: { vo2: '4:20', threshold: '4:45', easy: '6:30' },
+  paceHistory: [], // Track pace updates over time: [{week, vo2, threshold, date}]
+  syncStatus: 'synced',
+  activeTab: 'timeline',
+  expandedWeek: null,
+  expandedPaceWeek: null
+};
+
+// Session type labels
+const typeLabels = {
+  lr: 'Long Run', er: 'Easy', tr: 'Tempo', br: 'Bike',
+  vo2: 'VO2max', threshold: 'Threshold', z2: 'Zone 2',
+  easy: 'Easy', rest: 'Rest', race: 'Race', sharpener: 'Sharp'
+};
+
+// Phase labels
+const phaseLabels = {
+  base: 'Base', build: 'Build', threshold: 'Threshold', 
+  vo2max: 'VO2max', 'race-specific': 'Race-Spec',
+  taper: 'Taper', race: 'Race', recovery: 'Recovery', vacation: 'Vacation'
+};
+
+// Gist Sync Functions
+async function loadFromGist() {
+  try {
+    state.syncStatus = 'syncing';
+    updateSyncStatus();
     
-    w.sessions.forEach(s => {
-      const log = data.sessions[s.id];
-      const type = TYPES[s.type];
-      const icon = log?.status==='completed'?'✓':log?.status==='skipped'?'✕':log?.status==='modified'?'~':'○';
-      const statusClass = log?.status || 'pending';
-      
-      html += `<div class="session" onclick="openModal('${s.id}')">`;
-      html += `<div class="session-status ${statusClass}">${icon}</div>`;
-      html += `<div class="session-content">`;
-      html += `<span class="session-type" style="background:${type.bg};color:${type.text}">${type.label}</span>`;
-      html += `<div class="session-planned">${s.planned}</div>`;
-      if (log) {
-        let logText = '';
-        if (log.distance) logText += `${log.distance}km`;
-        if (log.pace) logText += ` @ ${log.pace}`;
-        if (log.time) logText += ` · ${log.time}min`;
-        if (log.hr) logText += ` · ${log.hr}bpm`;
-        html += `<div class="session-logged">${logText}`;
-        if (log.notes) html += `<div class="session-notes">${log.notes}</div>`;
-        html += `</div>`;
-      }
-      html += `</div></div>`;
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers: { 'Authorization': `token ${GITHUB_TOKEN}` }
     });
     
-    if (w.notes) {
-      html += `<div class="week-notes">📌 ${w.notes}</div>`;
-    }
-    html += `</div></div>`;
-  });
-  
-  container.innerHTML = html;
-}
-
-function toggleWeek(kw) {
-  expandedWeek = expandedWeek === kw ? null : kw;
-  renderTimeline();
-}
-
-// Charts
-function renderCharts() {
-  const container = document.getElementById('charts-tab');
-  let html = `<div class="chart-nav">`;
-  [{k:'paces',l:'Pace Targets'},{k:'volume',l:'Volume'},{k:'actual',l:'Actual vs Plan'}].forEach(t => {
-    html += `<button class="${chartTab===t.k?'active':''}" onclick="setChartTab('${t.k}')">${t.l}</button>`;
-  });
-  html += `</div>`;
-  
-  if (chartTab === 'paces') {
-    html += `<div class="chart-card">
-      <h3>Target Pace Progression</h3>
-      <p>Plan targets by week (faster = lower on chart)</p>
-      <svg viewBox="0 0 360 200" style="width:100%;height:auto;">
-        ${[0,1,2,3,4].map(i => `
-          <line x1="40" y1="${30+i*40}" x2="350" y2="${30+i*40}" stroke="#f0f0f0" stroke-width="1"/>
-          <text x="35" y="${34+i*40}" text-anchor="end" font-size="8" fill="#999">${['3:45','4:00','4:15','4:30','4:45'][i]}</text>
-        `).join('')}
-        <rect x="40" y="20" width="39" height="170" fill="#F1EFE8" opacity="0.5"/>
-        <rect x="79" y="20" width="52" height="170" fill="#E6F1FB" opacity="0.5"/>
-        <rect x="131" y="20" width="52" height="170" fill="#EEEDFE" opacity="0.5"/>
-        <rect x="183" y="20" width="52" height="170" fill="#E1F5EE" opacity="0.5"/>
-        <rect x="235" y="20" width="52" height="170" fill="#EEEDFE" opacity="0.5"/>
-        <rect x="287" y="20" width="39" height="170" fill="#FAECE7" opacity="0.5"/>
-        <rect x="326" y="20" width="24" height="170" fill="#EAF3DE" opacity="0.5"/>
-        <polyline fill="none" stroke="#3C3489" stroke-width="2" points="53,150 92,150 105,150 118,140 131,140 144,130 157,120 170,125 183,120 196,110 209,100 222,110 235,100 248,90 261,80 274,90 287,80 300,90 313,80 326,95 339,100"/>
-        <polyline fill="none" stroke="#085041" stroke-width="2" points="53,170 92,170 105,170 118,160 131,160 144,150 157,150 170,150 183,145 196,130 209,130 222,125 235,120 248,115 261,115 270,110 287,105 300,105 313,100 326,110 339,110"/>
-        <line x1="53" y1="20" x2="53" y2="190" stroke="#FFD700" stroke-width="2" stroke-dasharray="4,2"/>
-        <circle cx="60" cy="12" r="4" fill="#3C3489"/><text x="68" y="15" font-size="8" fill="#3C3489">VO2max</text>
-        <circle cx="120" cy="12" r="4" fill="#085041"/><text x="128" y="15" font-size="8" fill="#085041">Threshold</text>
-        <text x="53" y="198" text-anchor="middle" font-size="7" fill="#999">13</text>
-        <text x="92" y="198" text-anchor="middle" font-size="7" fill="#999">16</text>
-        <text x="144" y="198" text-anchor="middle" font-size="7" fill="#999">20</text>
-        <text x="196" y="198" text-anchor="middle" font-size="7" fill="#999">24</text>
-        <text x="248" y="198" text-anchor="middle" font-size="7" fill="#999">28</text>
-        <text x="300" y="198" text-anchor="middle" font-size="7" fill="#999">32</text>
-        <text x="339" y="198" text-anchor="middle" font-size="7" fill="#999">36</text>
-      </svg>
-      <div class="chart-summary">
-        <div class="chart-summary-box" style="background:#EEEDFE">
-          <div class="label" style="color:#3C3489">VO2max</div>
-          <div class="value" style="color:#3C3489">${data.paces.vo2}</div>
-          <div class="sub">→ 3:45 target</div>
-        </div>
-        <div class="chart-summary-box" style="background:#E1F5EE">
-          <div class="label" style="color:#085041">Threshold</div>
-          <div class="value" style="color:#085041">${data.paces.threshold}</div>
-          <div class="sub">→ 4:00 target</div>
-        </div>
-      </div>
-    </div>`;
-  } else if (chartTab === 'volume') {
-    const stats = getTotalStats();
-    const totalPlanned = WEEKS.reduce((s,w) => s + w.volTarget, 0);
-    html += `<div class="chart-card">
-      <h3>Weekly Volume (km)</h3>
-      <p>Planned volume by week</p>
-      <div class="volume-chart">
-        ${WEEKS.map(w => {
-          const phase = PHASES[w.phase];
-          const ws = getWeekStats(w);
-          const plannedH = (w.volTarget / 30) * 120;
-          const actualH = ws.distance > 0 ? (ws.distance / 30) * 120 : 0;
-          return `<div class="volume-bar-wrap">
-            <div class="volume-bar-container">
-              <div class="volume-bar planned" style="height:${plannedH}px;background:${phase.color}"></div>
-              ${actualH > 0 ? `<div class="volume-bar actual" style="height:${actualH}px;width:60%;background:${phase.color}"></div>` : ''}
-            </div>
-            <div class="volume-label">${w.kw}</div>
-          </div>`;
-        }).join('')}
-      </div>
-      <div class="volume-legend">
-        <div class="volume-legend-item"><div class="volume-legend-box" style="background:#888;opacity:0.4"></div>Planned</div>
-        <div class="volume-legend-item"><div class="volume-legend-box" style="background:#888"></div>Actual</div>
-      </div>
-      <div class="volume-stats">
-        <div class="volume-stat"><div class="label">Total Planned</div><div class="value">${totalPlanned} km</div></div>
-        <div class="volume-stat"><div class="label">Total Logged</div><div class="value">${stats.distance.toFixed(1)} km</div></div>
-        <div class="volume-stat"><div class="label">Avg/Week</div><div class="value">${Math.round(totalPlanned / 24)} km</div></div>
-      </div>
-    </div>`;
-  } else if (chartTab === 'actual') {
-    const vo2Sessions = [];
-    const thresholdSessions = [];
-    WEEKS.forEach(w => w.sessions.forEach(s => {
-      const log = data.sessions[s.id];
-      if (log?.pace && log?.status === 'completed') {
-        if (s.type === 'vo2') vo2Sessions.push({kw: w.kw, pace: log.pace});
-        else if (s.type === 'threshold') thresholdSessions.push({kw: w.kw, pace: log.pace});
+    if (res.ok) {
+      const gist = await res.json();
+      const content = gist.files['training_data.json'].content;
+      const data = JSON.parse(content);
+      
+      if (data.sessions) state.sessions = data.sessions;
+      if (data.paces) state.paces = data.paces;
+      if (data.paceHistory) state.paceHistory = data.paceHistory;
+      if (data.activePlan) state.activePlan = data.activePlan;
+      
+      // Initialize paceHistory with starting paces if empty
+      if (state.paceHistory.length === 0) {
+        state.paceHistory.push({
+          week: 0,
+          vo2: state.paces.vo2,
+          threshold: state.paces.threshold,
+          date: new Date().toISOString()
+        });
       }
-    }));
-    
-    html += `<div class="chart-card">
-      <h3>Actual vs Planned Paces</h3>
-      <p>Your logged paces compared to targets</p>`;
-    
-    if (vo2Sessions.length === 0 && thresholdSessions.length === 0) {
-      html += `<div class="actual-empty">
-        <div class="actual-empty-icon">📊</div>
-        <div>No pace data logged yet</div>
-        <div style="font-size:0.75rem;margin-top:0.25rem;">Log workouts with pace to see your progress here</div>
-      </div>`;
+      
+      state.syncStatus = 'synced';
     } else {
-      if (vo2Sessions.length > 0) {
-        html += `<div class="actual-section">
-          <div class="actual-section-title" style="color:#3C3489">VO2max Sessions</div>
-          ${vo2Sessions.map(s => `
-            <div class="actual-row">
-              <span class="actual-kw">KW${s.kw}</span>
-              <div class="actual-bar"><div class="actual-bar-fill" style="width:70%;background:#3C3489"></div></div>
-              <span class="actual-pace" style="color:#3C3489">${s.pace}</span>
-            </div>
-          `).join('')}
-        </div>`;
-      }
-      if (thresholdSessions.length > 0) {
-        html += `<div class="actual-section">
-          <div class="actual-section-title" style="color:#085041">Threshold Sessions</div>
-          ${thresholdSessions.map(s => `
-            <div class="actual-row">
-              <span class="actual-kw">KW${s.kw}</span>
-              <div class="actual-bar"><div class="actual-bar-fill" style="width:70%;background:#085041"></div></div>
-              <span class="actual-pace" style="color:#085041">${s.pace}</span>
-            </div>
-          `).join('')}
-        </div>`;
+      state.syncStatus = 'error';
+    }
+  } catch (e) {
+    console.error('Load error:', e);
+    state.syncStatus = 'error';
+  }
+  updateSyncStatus();
+}
+
+async function saveToGist() {
+  try {
+    state.syncStatus = 'syncing';
+    updateSyncStatus();
+    
+    const data = {
+      activePlan: state.activePlan,
+      sessions: state.sessions,
+      paces: state.paces,
+      paceHistory: state.paceHistory,
+      lastSync: new Date().toISOString()
+    };
+    
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `token ${GITHUB_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        files: { 'training_data.json': { content: JSON.stringify(data, null, 2) } }
+      })
+    });
+    
+    state.syncStatus = res.ok ? 'synced' : 'error';
+  } catch (e) {
+    console.error('Save error:', e);
+    state.syncStatus = 'error';
+  }
+  updateSyncStatus();
+}
+
+function updateSyncStatus() {
+  const el = document.getElementById('syncStatus');
+  const dot = el.querySelector('.sync-dot');
+  const text = el.querySelector('span');
+  
+  dot.className = 'sync-dot ' + state.syncStatus;
+  text.textContent = state.syncStatus === 'syncing' ? 'Syncing...' : 
+                     state.syncStatus === 'error' ? 'Sync error' : 'Synced';
+}
+
+// Get session data (from pre-logged HM data or Gist)
+function getSessionData(sessionId) {
+  // Check if it's an HM session with pre-logged data
+  const plan = state.plans.hm;
+  for (const week of plan.weeks) {
+    const session = week.sessions?.find(s => s.id === sessionId);
+    if (session?.logged) return session.logged;
+  }
+  // Otherwise check Gist data
+  return state.sessions[sessionId] || null;
+}
+
+// Stats calculations
+function getWeekStats(week) {
+  const sessions = week.sessions || [];
+  let completed = 0, distance = 0, time = 0;
+  
+  sessions.forEach(s => {
+    const log = getSessionData(s.id);
+    if (log?.status === 'completed') completed++;
+    if (log?.distance) distance += parseFloat(log.distance) || 0;
+    if (log?.time) {
+      const t = log.time;
+      if (t.includes(':')) {
+        const parts = t.split(':');
+        time += parseInt(parts[0]) + (parseInt(parts[1]) || 0) / 60;
+      } else {
+        time += parseFloat(t) || 0;
       }
     }
-    html += `</div>`;
-  }
+  });
   
-  html += `<div class="phase-legend">
-    <div class="phase-legend-title">Training Phases</div>
-    <div class="phase-legend-grid">
-      ${Object.entries(PHASES).map(([k,p]) => `
-        <div class="phase-legend-item">
-          <div class="phase-legend-dot" style="background:${p.color}"></div>
-          <span class="phase-legend-name">${p.name}</span>
+  return { completed, total: sessions.length, distance, time };
+}
+
+function getPlanStats(planId) {
+  const plan = state.plans[planId];
+  let completed = 0, total = 0, distance = 0, time = 0;
+  
+  plan.weeks.forEach(week => {
+    const stats = getWeekStats(week);
+    completed += stats.completed;
+    total += stats.total;
+    distance += stats.distance;
+    time += stats.time;
+  });
+  
+  return { completed, total, distance, time };
+}
+
+function getCurrentWeek() {
+  const plan = state.plans[state.activePlan];
+  const now = new Date();
+  const weekNum = getISOWeek(now);
+  const year = now.getFullYear();
+  
+  for (const week of plan.weeks) {
+    if (week.kw === weekNum && (week.year === year || !week.year)) {
+      return week;
+    }
+  }
+  return plan.weeks[0];
+}
+
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function formatTime(minutes) {
+  if (!minutes) return '-';
+  const hrs = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+  return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+}
+
+function formatTimeShort(minutes) {
+  if (!minutes) return '-';
+  const hrs = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+  if (hrs > 0) return `${hrs}h`;
+  return `${mins}m`;
+}
+
+function formatTimeHMS(minutes) {
+  if (!minutes) return '00:00:00';
+  const hrs = Math.floor(minutes / 60);
+  const mins = Math.floor(minutes % 60);
+  const secs = Math.round((minutes % 1) * 60);
+  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Format time for input field (h:mm:ss)
+function formatTimeInput(minutes) {
+  if (!minutes) return '';
+  const hrs = Math.floor(minutes / 60);
+  const mins = Math.floor(minutes % 60);
+  const secs = Math.round((minutes % 1) * 60);
+  return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Parse h:mm:ss to minutes (decimal)
+function parseTimeInput(timeStr) {
+  if (!timeStr) return '';
+  const parts = timeStr.split(':');
+  if (parts.length === 3) {
+    // h:mm:ss
+    const hrs = parseInt(parts[0]) || 0;
+    const mins = parseInt(parts[1]) || 0;
+    const secs = parseInt(parts[2]) || 0;
+    return hrs * 60 + mins + secs / 60;
+  } else if (parts.length === 2) {
+    // mm:ss
+    const mins = parseInt(parts[0]) || 0;
+    const secs = parseInt(parts[1]) || 0;
+    return mins + secs / 60;
+  }
+  // Assume minutes
+  return parseFloat(timeStr) || '';
+}
+
+function getWeeksToRace(planId = null) {
+  const plan = state.plans[planId || state.activePlan];
+  if (plan.status === 'completed') return 0;
+  const raceDate = new Date(plan.raceDate);
+  const now = new Date();
+  const diff = raceDate - now;
+  return Math.max(0, Math.ceil(diff / (7 * 24 * 60 * 60 * 1000)));
+}
+
+// Render Functions
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = renderHeader() + renderNav() + renderContent();
+  attachEventListeners();
+}
+
+function renderHeader() {
+  const plan = state.plans[state.activePlan];
+  const stats = getPlanStats(state.activePlan);
+  const weeksToRace = getWeeksToRace();
+  const currentWeek = getCurrentWeek();
+  
+  // Build dropdown options for all plans
+  const planOptions = Object.entries(state.plans).map(([id, p]) => {
+    const status = p.status === 'completed' ? `✅ ${p.result || 'Done'}` : 
+                   `${getWeeksToRace(id)} weeks`;
+    return `<option value="${id}" ${state.activePlan === id ? 'selected' : ''}>${p.name} — ${status}</option>`;
+  }).join('');
+  
+  // Get training week number (week index, with first week being 0 for recovery)
+  const trainingWeek = currentWeek?.week !== undefined ? 
+    (typeof currentWeek.week === 'number' ? currentWeek.week - 1 : currentWeek.week) : '-';
+  
+  return `
+    <div class="header">
+      <div class="plan-selector-wrap">
+        <select class="plan-dropdown" id="planDropdown">
+          ${planOptions}
+        </select>
+      </div>
+      <div class="header-stats">
+        <div class="stat-box">
+          <div class="label">Week</div>
+          <div class="value">${trainingWeek}</div>
         </div>
+        <div class="stat-box">
+          <div class="label">Sessions</div>
+          <div class="value">${stats.completed}/${stats.total}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Km</div>
+          <div class="value">${stats.distance.toFixed(2)}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Time</div>
+          <div class="value">${formatTimeHMS(stats.time)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderNav() {
+  const tabs = ['timeline', 'stats', 'paces'];
+  return `
+    <div class="nav">
+      ${tabs.map(tab => `
+        <button class="nav-btn ${state.activeTab === tab ? 'active' : ''}" data-tab="${tab}">
+          ${tab.charAt(0).toUpperCase() + tab.slice(1)}
+        </button>
       `).join('')}
     </div>
-  </div>`;
+  `;
+}
+
+function renderContent() {
+  return `<div class="content">${
+    state.activeTab === 'timeline' ? renderTimeline() :
+    state.activeTab === 'stats' ? renderStats() :
+    renderPaces()
+  }</div>`;
+}
+
+function renderTimeline() {
+  const plan = state.plans[state.activePlan];
+  const currentKw = getISOWeek(new Date());
   
-  container.innerHTML = html;
+  return plan.weeks.map(week => {
+    const stats = getWeekStats(week);
+    const isCurrent = week.kw === currentKw;
+    const isExpanded = state.expandedWeek === week.kw;
+    const phaseClass = `phase-${week.phase}`;
+    
+    // Calculate display week number (week 1 = index 0 for recovery plans)
+    const weekNum = typeof week.week === 'number' ? week.week - 1 : week.week;
+    const weekDisplay = weekNum !== undefined ? 
+      (typeof weekNum === 'number' ? weekNum.toString().padStart(2, '0') : weekNum) : '--';
+    
+    return `
+      <div class="week-card ${isCurrent ? 'current' : ''} ${isExpanded ? 'expanded' : ''}" data-kw="${week.kw}">
+        <div class="week-header">
+          <div class="week-info">
+            <span class="week-num">[${weekDisplay}]</span>
+            <span class="week-kw">KW${week.kw}</span>
+            <span class="week-dates">${week.dates}</span>
+          </div>
+          <div class="week-meta">
+            <span class="week-progress ${stats.completed === stats.total && stats.total > 0 ? 'complete' : ''}">
+              ${stats.completed}/${stats.total}
+            </span>
+            <span class="phase-badge ${phaseClass}">${phaseLabels[week.phase] || week.phase}</span>
+            <span class="expand-icon">▼</span>
+          </div>
+        </div>
+        <div class="week-body">
+          ${(week.sessions || []).map(s => renderSession(s)).join('')}
+          ${week.notes ? `<div class="week-note">📌 ${week.notes}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
-function setChartTab(tab) {
-  chartTab = tab;
-  renderCharts();
+function renderSession(session) {
+  const log = getSessionData(session.id);
+  const statusClass = log?.status || '';
+  const statusIcon = log?.status === 'completed' ? '✓' : 
+                     log?.status === 'skipped' ? '✕' : 
+                     log?.status === 'modified' ? '~' : '○';
+  const typeClass = `type-${session.type}`;
+  
+  return `
+    <div class="session" data-id="${session.id}">
+      <div class="session-status ${statusClass}">${statusIcon}</div>
+      <div class="session-content">
+        <span class="session-type ${typeClass}">${typeLabels[session.type] || session.type}</span>
+        <div class="session-planned">${session.planned}</div>
+        ${log ? `
+          <div class="session-logged">
+            ${log.distance ? log.distance + 'km' : ''}
+            ${log.pace ? ' @ ' + log.pace : ''}
+            ${log.time ? ' · ' + log.time + 'min' : ''}
+            ${log.hr ? ' · ' + log.hr + 'bpm' : ''}
+            ${log.notes ? `<div class="session-notes">${log.notes}</div>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
 }
 
-// Stats
 function renderStats() {
-  const container = document.getElementById('stats-tab');
-  const stats = getTotalStats();
-  const pct = Math.round((stats.completed / stats.total) * 100);
+  const plan = state.plans[state.activePlan];
+  const isHM = state.activePlan === 'hm';
   
-  let html = `<div class="stats-card">
-    <h3>Overall Progress</h3>
-    <div class="stats-grid">
-      <div class="stats-item"><div class="label">Sessions completed</div><div class="value">${stats.completed}</div><div class="sub">of ${stats.total}</div></div>
-      <div class="stats-item"><div class="label">Completion rate</div><div class="value">${pct}%</div><div class="sub">of plan</div></div>
-      <div class="stats-item"><div class="label">Total distance</div><div class="value">${stats.distance.toFixed(1)}km</div><div class="sub">logged</div></div>
-      <div class="stats-item"><div class="label">Total time</div><div class="value">${formatTime(stats.time)}</div><div class="sub">logged</div></div>
+  // Calculate volumes for each week
+  const weekData = plan.weeks.map(week => {
+    const stats = getWeekStats(week);
+    return {
+      kw: week.kw,
+      phase: week.phase,
+      planned: week.volumeTarget || 0,
+      actual: stats.distance,
+      time: stats.time,
+      vo2Target: week.vo2Target,
+      thresholdTarget: week.thresholdTarget
+    };
+  });
+  
+  const maxVol = Math.max(...weekData.map(w => Math.max(w.planned, w.actual)), 35);
+  
+  // Build volume chart HTML - with Y axis and vertical text in bars
+  const yAxisSteps = [0, 10, 20, 30];
+  let volumeChart = `
+    <div class="chart-section">
+      <div class="chart-title">Weekly Volume</div>
+      <div style="display:flex;margin-top:0.75rem">
+        <div style="display:flex;flex-direction:column;justify-content:space-between;padding-right:6px;height:120px">
+          ${yAxisSteps.slice().reverse().map(v => `<span style="font-size:0.5rem;color:var(--text-muted)">${v}</span>`).join('')}
+        </div>
+        <div style="flex:1;display:flex;align-items:flex-end;gap:2px;height:120px">
+  `;
+  
+  weekData.forEach((week, idx) => {
+    const plannedH = week.planned > 0 ? Math.max((week.planned / maxVol) * 110, 4) : 0;
+    const actualH = week.actual > 0 ? Math.max((week.actual / maxVol) * 110, 4) : 0;
+    const color = getPhaseColor(week.phase);
+    const weekNum = idx.toString().padStart(2, '0');
+    const showActualText = week.actual > 0 && actualH > 20;
+    
+    volumeChart += `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;position:relative">
+        <div style="position:relative;width:100%;height:110px;display:flex;align-items:flex-end;justify-content:center">
+          <div style="width:80%;height:${plannedH}px;background:${color};opacity:0.25;border-radius:2px 2px 0 0;position:absolute;bottom:0"></div>
+          ${actualH > 0 ? `
+            <div style="width:80%;height:${actualH}px;background:${color};border-radius:2px 2px 0 0;position:absolute;bottom:0;display:flex;align-items:flex-end;justify-content:center;overflow:hidden">
+              ${showActualText ? `<span style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:0.5rem;color:#000;font-weight:600;padding:2px">${week.actual.toFixed(0)}</span>` : ''}
+            </div>
+          ` : ''}
+        </div>
+        <div style="font-size:0.45rem;color:var(--text-muted);margin-top:3px">${weekNum}</div>
+      </div>
+    `;
+  });
+  
+  volumeChart += `
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;justify-content:center;margin-top:0.5rem">
+        <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+          <div style="width:8px;height:8px;background:#6b7280;opacity:0.25;border-radius:1px"></div>Plan
+        </div>
+        <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+          <div style="width:8px;height:8px;background:#6b7280;border-radius:1px"></div>Actual
+        </div>
+      </div>
     </div>
-  </div>`;
+  `;
   
-  html += `<div class="stats-card">
-    <h3>Weekly Breakdown</h3>
-    <div class="weekly-breakdown">
-      ${WEEKS.map(w => {
-        const ws = getWeekStats(w);
-        const phase = PHASES[w.phase];
-        const pct = ws.total > 0 ? (ws.completed / ws.total) * 100 : 0;
-        return `<div class="breakdown-row">
-          <span class="breakdown-kw">KW${w.kw}</span>
-          <div class="breakdown-bar"><div class="breakdown-bar-fill" style="width:${pct}%;background:${phase.color}"></div></div>
-          <span class="breakdown-count">${ws.completed}/${ws.total}</span>
-          ${ws.distance > 0 ? `<span class="breakdown-km">${ws.distance.toFixed(1)}km</span>` : '<span class="breakdown-km"></span>'}
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`;
+  // Weekly breakdown table (expandable)
+  let weeklyTable = `
+    <div class="chart-section expandable-section" data-section="weeklyBreakdown">
+      <div class="expandable-header" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+        <div class="chart-title" style="margin:0">Weekly Breakdown</div>
+        <span class="expand-icon" style="font-size:0.8rem;color:var(--text-muted);transition:transform 0.2s">▼</span>
+      </div>
+      <div class="expandable-content" style="display:none;margin-top:0.75rem">
+        <div style="max-height:250px;overflow-y:auto">
+          <table style="width:100%;font-size:0.7rem;border-collapse:collapse">
+            <thead>
+              <tr style="color:var(--text-muted);text-align:left">
+                <th style="padding:0.4rem 0;border-bottom:1px solid var(--border)">Wk</th>
+                <th style="padding:0.4rem 0;border-bottom:1px solid var(--border)">Phase</th>
+                <th style="padding:0.4rem 0;border-bottom:1px solid var(--border);text-align:right">Plan</th>
+                <th style="padding:0.4rem 0;border-bottom:1px solid var(--border);text-align:right">Actual</th>
+                <th style="padding:0.4rem 0;border-bottom:1px solid var(--border);text-align:right">Time</th>
+              </tr>
+            </thead>
+            <tbody>
+  `;
   
-  container.innerHTML = html;
+  weekData.forEach((week, idx) => {
+    const color = getPhaseColor(week.phase);
+    const weekNum = idx.toString().padStart(2, '0');
+    weeklyTable += `
+      <tr>
+        <td style="padding:0.35rem 0;border-bottom:1px solid var(--border)">${weekNum}</td>
+        <td style="padding:0.35rem 0;border-bottom:1px solid var(--border)">
+          <span style="color:${color}">${phaseLabels[week.phase] || week.phase}</span>
+        </td>
+        <td style="padding:0.35rem 0;border-bottom:1px solid var(--border);text-align:right;color:var(--text-muted)">${week.planned > 0 ? week.planned + 'km' : '-'}</td>
+        <td style="padding:0.35rem 0;border-bottom:1px solid var(--border);text-align:right">${week.actual > 0 ? week.actual.toFixed(1) + 'km' : '-'}</td>
+        <td style="padding:0.35rem 0;border-bottom:1px solid var(--border);text-align:right;color:var(--text-muted)">${week.time > 0 ? formatTime(week.time) : '-'}</td>
+      </tr>
+    `;
+  });
+  
+  weeklyTable += `</tbody></table></div></div></div>`;
+  
+  // Pace progression chart (different for HM vs 10K)
+  let paceChart = '';
+  
+  if (isHM) {
+    // HM: Show tempo pace progression from logged data
+    const tempoPaces = [];
+    plan.weeks.forEach(week => {
+      (week.sessions || []).forEach(s => {
+        const log = getSessionData(s.id);
+        if (log?.pace && s.type === 'tr' && log.status === 'completed') {
+          const paceSeconds = paceToSeconds(log.pace);
+          if (paceSeconds > 0) {
+            tempoPaces.push({ kw: week.kw, pace: log.pace, seconds: paceSeconds });
+          }
+        }
+      });
+    });
+    
+    if (tempoPaces.length > 0) {
+      const minPace = Math.min(...tempoPaces.map(p => p.seconds));
+      const maxPace = Math.max(...tempoPaces.map(p => p.seconds));
+      const range = maxPace - minPace || 60;
+      
+      paceChart = `
+        <div class="chart-section">
+          <div class="chart-title">Tempo Pace Progression</div>
+          <div class="chart-subtitle">Your tempo paces over the plan (lower = faster)</div>
+          <svg viewBox="0 0 ${tempoPaces.length * 30 + 40} 120" style="width:100%;height:auto;margin-top:0.75rem">
+            <!-- Grid lines -->
+            <line x1="30" y1="20" x2="${tempoPaces.length * 30 + 30}" y2="20" stroke="var(--border)" stroke-width="1"/>
+            <line x1="30" y1="50" x2="${tempoPaces.length * 30 + 30}" y2="50" stroke="var(--border)" stroke-width="1"/>
+            <line x1="30" y1="80" x2="${tempoPaces.length * 30 + 30}" y2="80" stroke="var(--border)" stroke-width="1"/>
+            
+            <!-- Y axis labels -->
+            <text x="25" y="24" text-anchor="end" font-size="8" fill="var(--text-muted)">${secondsToPace(minPace)}</text>
+            <text x="25" y="84" text-anchor="end" font-size="8" fill="var(--text-muted)">${secondsToPace(maxPace)}</text>
+            
+            <!-- Data points and line -->
+            <polyline fill="none" stroke="#f59e0b" stroke-width="2" points="${tempoPaces.map((p, i) => {
+              const x = 40 + i * 30;
+              const y = 20 + ((p.seconds - minPace) / range) * 60;
+              return `${x},${y}`;
+            }).join(' ')}"/>
+            
+            ${tempoPaces.map((p, i) => {
+              const x = 40 + i * 30;
+              const y = 20 + ((p.seconds - minPace) / range) * 60;
+              return `
+                <circle cx="${x}" cy="${y}" r="4" fill="#f59e0b"/>
+                <text x="${x}" y="100" text-anchor="middle" font-size="7" fill="var(--text-muted)">KW${p.kw}</text>
+                <text x="${x}" y="${y - 8}" text-anchor="middle" font-size="6" fill="#f59e0b">${p.pace}</text>
+              `;
+            }).join('')}
+          </svg>
+          <div style="text-align:center;margin-top:0.5rem;font-size:0.75rem">
+            <span style="color:var(--text-muted)">Start:</span> <span style="color:#f59e0b">${tempoPaces[0]?.pace}</span>
+            <span style="margin:0 0.5rem">→</span>
+            <span style="color:var(--text-muted)">End:</span> <span style="color:#22c55e">${tempoPaces[tempoPaces.length-1]?.pace}</span>
+          </div>
+        </div>
+      `;
+    }
+  } else {
+    // 10K: Show target pace progression + actual (when logged)
+    const paceTargets = weekData.filter(w => w.vo2Target || w.thresholdTarget);
+    
+    if (paceTargets.length > 0) {
+      // Get actual logged paces
+      const actualVO2 = [];
+      const actualThreshold = [];
+      
+      plan.weeks.forEach(week => {
+        (week.sessions || []).forEach(s => {
+          const log = state.sessions[s.id];
+          if (log?.pace && log.status === 'completed') {
+            const seconds = paceToSeconds(log.pace);
+            if (seconds > 0) {
+              if (s.type === 'vo2') actualVO2.push({ kw: week.kw, pace: log.pace, seconds });
+              if (s.type === 'threshold') actualThreshold.push({ kw: week.kw, pace: log.pace, seconds });
+            }
+          }
+        });
+      });
+      
+      const chartWidth = paceTargets.length * 28 + 70;
+      const chartHeight = 220;
+      
+      paceChart = `
+        <div class="chart-section">
+          <div class="chart-title">Target Pace Progression</div>
+          <svg viewBox="0 0 ${chartWidth} ${chartHeight}" style="width:100%;height:auto;margin-top:0.5rem">
+            <!-- Grid lines (pace scale: 3:45 to 4:45 = 225s to 285s) -->
+            <line x1="55" y1="20" x2="${chartWidth - 10}" y2="20" stroke="var(--border)" stroke-width="1"/>
+            <line x1="55" y1="60" x2="${chartWidth - 10}" y2="60" stroke="var(--border)" stroke-width="1"/>
+            <line x1="55" y1="100" x2="${chartWidth - 10}" y2="100" stroke="var(--border)" stroke-width="1"/>
+            <line x1="55" y1="140" x2="${chartWidth - 10}" y2="140" stroke="var(--border)" stroke-width="1"/>
+            <line x1="55" y1="180" x2="${chartWidth - 10}" y2="180" stroke="var(--border)" stroke-width="1"/>
+            
+            <!-- Y axis labels -->
+            <text x="50" y="24" text-anchor="end" font-size="14" fill="var(--text-muted)">3:45</text>
+            <text x="50" y="64" text-anchor="end" font-size="14" fill="var(--text-muted)">4:00</text>
+            <text x="50" y="104" text-anchor="end" font-size="14" fill="var(--text-muted)">4:15</text>
+            <text x="50" y="144" text-anchor="end" font-size="14" fill="var(--text-muted)">4:30</text>
+            <text x="50" y="184" text-anchor="end" font-size="14" fill="var(--text-muted)">4:45</text>
+            
+            <!-- VO2 target line (red/orange) -->
+            <polyline fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,2" points="${paceTargets.map((w, i) => {
+              const x = 65 + i * 28;
+              const targetSec = paceToSeconds(w.vo2Target || '4:15');
+              const y = 20 + ((targetSec - 225) / 60) * 160;
+              return `${x},${Math.min(Math.max(y, 15), 185)}`;
+            }).join(' ')}"/>
+            
+            <!-- Threshold target line (green) -->
+            <polyline fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="4,2" points="${paceTargets.map((w, i) => {
+              const x = 65 + i * 28;
+              const targetSec = paceToSeconds(w.thresholdTarget || '4:30');
+              const y = 20 + ((targetSec - 225) / 60) * 160;
+              return `${x},${Math.min(Math.max(y, 15), 185)}`;
+            }).join(' ')}"/>
+            
+            <!-- Actual VO2 points -->
+            ${actualVO2.map(p => {
+              const weekIdx = paceTargets.findIndex(w => w.kw === p.kw);
+              if (weekIdx === -1) return '';
+              const x = 65 + weekIdx * 28;
+              const y = 20 + ((p.seconds - 225) / 60) * 160;
+              return `<circle cx="${x}" cy="${Math.min(Math.max(y, 15), 185)}" r="5" fill="#ef4444"/>`;
+            }).join('')}
+            
+            <!-- Actual Threshold points -->
+            ${actualThreshold.map(p => {
+              const weekIdx = paceTargets.findIndex(w => w.kw === p.kw);
+              if (weekIdx === -1) return '';
+              const x = 65 + weekIdx * 28;
+              const y = 20 + ((p.seconds - 225) / 60) * 160;
+              return `<circle cx="${x}" cy="${Math.min(Math.max(y, 15), 185)}" r="5" fill="#10b981"/>`;
+            }).join('')}
+            
+            <!-- X axis labels -->
+            ${paceTargets.map((w, i) => {
+              const x = 65 + i * 28;
+              const weekNum = (i + 3).toString().padStart(2, '0');
+              return `<text x="${x}" y="${chartHeight - 8}" text-anchor="middle" font-size="14" fill="var(--text-muted)">${weekNum}</text>`;
+            }).join('')}
+          </svg>
+          
+          <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:0.4rem;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+              <div style="width:8px;height:8px;background:#ef4444;border-radius:1px"></div>VO2max
+            </div>
+            <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+              <div style="width:8px;height:8px;background:#10b981;border-radius:1px"></div>Threshold
+            </div>
+            <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+              <span style="border-top:2px dashed #666;width:10px;display:inline-block"></span>Target
+            </div>
+            <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+              <span style="width:6px;height:6px;border-radius:50%;background:#666;display:inline-block"></span>Actual
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
+  
+  // HR Chart - collect avg HR by session type per week + max HR from benchmarks
+  let hrChart = '';
+  const hrData = {
+    z2: [],    // Zone 2 / Easy runs
+    threshold: [], // Threshold runs
+    vo2: [],   // VO2max intervals
+    maxHr: []  // Max HR from paceHistory benchmarks
+  };
+  
+  plan.weeks.forEach((week, idx) => {
+    const weekHr = { z2: [], threshold: [], vo2: [] };
+    
+    (week.sessions || []).forEach(s => {
+      const log = state.sessions[s.id];
+      if (log?.hr && log.status === 'completed') {
+        const hr = parseInt(log.hr);
+        if (hr > 0) {
+          if (s.type === 'z2' || s.type === 'easy' || s.type === 'er' || s.type === 'lr') {
+            weekHr.z2.push(hr);
+          } else if (s.type === 'threshold' || s.type === 'tr') {
+            weekHr.threshold.push(hr);
+          } else if (s.type === 'vo2') {
+            weekHr.vo2.push(hr);
+          }
+        }
+      }
+    });
+    
+    // Calculate weekly averages
+    if (weekHr.z2.length > 0) {
+      hrData.z2.push({ week: idx, hr: Math.round(weekHr.z2.reduce((a, b) => a + b, 0) / weekHr.z2.length) });
+    }
+    if (weekHr.threshold.length > 0) {
+      hrData.threshold.push({ week: idx, hr: Math.round(weekHr.threshold.reduce((a, b) => a + b, 0) / weekHr.threshold.length) });
+    }
+    if (weekHr.vo2.length > 0) {
+      hrData.vo2.push({ week: idx, hr: Math.round(weekHr.vo2.reduce((a, b) => a + b, 0) / weekHr.vo2.length) });
+    }
+  });
+  
+  // Add max HR from paceHistory benchmarks
+  state.paceHistory.forEach(p => {
+    if (p.maxHr) {
+      const hr = parseInt(p.maxHr);
+      if (hr > 0) {
+        hrData.maxHr.push({ week: p.week, hr: hr });
+      }
+    }
+  });
+  
+  const hasHrData = hrData.z2.length > 0 || hrData.threshold.length > 0 || hrData.vo2.length > 0 || hrData.maxHr.length > 0;
+  
+  if (hasHrData) {
+    const allHr = [...hrData.z2, ...hrData.threshold, ...hrData.vo2, ...hrData.maxHr].map(d => d.hr);
+    const minHr = Math.min(...allHr) - 10;
+    const maxHr = Math.max(...allHr) + 5;
+    const range = maxHr - minHr;
+    
+    const totalWeeks = plan.weeks.length;
+    const chartWidth = Math.max(totalWeeks * 14 + 60, 250);
+    const chartHeight = 160;
+    
+    // Y-axis labels (flipped: high at top, low at bottom) - rounded to nearest 5
+    const ySteps = 5;
+    const roundedMinHr = roundHr(minHr, 5);
+    const roundedMaxHr = roundHr(maxHr, 5);
+    const roundedRange = roundedMaxHr - roundedMinHr;
+    const yLabels = [];
+    for (let i = 0; i < ySteps; i++) {
+      yLabels.push(roundedMaxHr - Math.round((roundedRange / (ySteps - 1)) * i / 5) * 5);
+    }
+    
+    hrChart = `
+      <div class="chart-section">
+        <div class="chart-title">Heart Rate Tracking</div>
+        <svg viewBox="0 0 ${chartWidth} ${chartHeight}" style="width:100%;height:auto;margin-top:0.5rem">
+          <!-- Grid lines -->
+          ${yLabels.map((_, i) => {
+            const y = 20 + (i / (ySteps - 1)) * 110;
+            return `<line x1="45" y1="${y}" x2="${chartWidth - 10}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+          }).join('')}
+          
+          <!-- Y axis labels -->
+          ${yLabels.map((label, i) => {
+            const y = 24 + (i / (ySteps - 1)) * 110;
+            return `<text x="40" y="${y}" text-anchor="end" font-size="9" fill="var(--text-muted)">${label}</text>`;
+          }).join('')}
+          
+          <!-- Max HR line (pink, dashed) -->
+          ${hrData.maxHr.length > 1 ? `
+            <polyline fill="none" stroke="#ec4899" stroke-width="2" stroke-dasharray="4,2" points="${hrData.maxHr.map(d => {
+              const x = 50 + d.week * 14;
+              const y = 20 + ((roundedMaxHr - d.hr) / roundedRange) * 110;
+              return `${x},${y}`;
+            }).join(' ')}"/>
+          ` : ''}
+          
+          <!-- Z2 line (blue) -->
+          ${hrData.z2.length > 1 ? `
+            <polyline fill="none" stroke="#3b82f6" stroke-width="2" points="${hrData.z2.map(d => {
+              const x = 50 + d.week * 14;
+              const y = 20 + ((roundedMaxHr - d.hr) / roundedRange) * 110;
+              return `${x},${y}`;
+            }).join(' ')}"/>
+          ` : ''}
+          
+          <!-- Threshold line (green) -->
+          ${hrData.threshold.length > 1 ? `
+            <polyline fill="none" stroke="#10b981" stroke-width="2" points="${hrData.threshold.map(d => {
+              const x = 50 + d.week * 14;
+              const y = 20 + ((roundedMaxHr - d.hr) / roundedRange) * 110;
+              return `${x},${y}`;
+            }).join(' ')}"/>
+          ` : ''}
+          
+          <!-- VO2 line (red) -->
+          ${hrData.vo2.length > 1 ? `
+            <polyline fill="none" stroke="#ef4444" stroke-width="2" points="${hrData.vo2.map(d => {
+              const x = 50 + d.week * 14;
+              const y = 20 + ((roundedMaxHr - d.hr) / roundedRange) * 110;
+              return `${x},${y}`;
+            }).join(' ')}"/>
+          ` : ''}
+          
+          <!-- Max HR points -->
+          ${hrData.maxHr.map(d => {
+            const x = 50 + d.week * 14;
+            const y = 20 + ((roundedMaxHr - d.hr) / roundedRange) * 110;
+            return `<circle cx="${x}" cy="${y}" r="4" fill="#ec4899"/>`;
+          }).join('')}
+          
+          <!-- Z2 points -->
+          ${hrData.z2.map(d => {
+            const x = 50 + d.week * 14;
+            const y = 20 + ((roundedMaxHr - d.hr) / roundedRange) * 110;
+            return `<circle cx="${x}" cy="${y}" r="4" fill="#3b82f6"/>`;
+          }).join('')}
+          
+          <!-- Threshold points -->
+          ${hrData.threshold.map(d => {
+            const x = 50 + d.week * 14;
+            const y = 20 + ((roundedMaxHr - d.hr) / roundedRange) * 110;
+            return `<circle cx="${x}" cy="${y}" r="4" fill="#10b981"/>`;
+          }).join('')}
+          
+          <!-- VO2 points -->
+          ${hrData.vo2.map(d => {
+            const x = 50 + d.week * 14;
+            const y = 20 + ((roundedMaxHr - d.hr) / roundedRange) * 110;
+            return `<circle cx="${x}" cy="${y}" r="4" fill="#ef4444"/>`;
+          }).join('')}
+          
+          <!-- X axis labels (all weeks) -->
+          ${Array.from({length: totalWeeks}, (_, w) => {
+            const x = 50 + w * 14;
+            return `<text x="${x}" y="${chartHeight - 8}" text-anchor="middle" font-size="6" fill="var(--text-muted)">${w.toString().padStart(2, '0')}</text>`;
+          }).join('')}
+        </svg>
+        <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:0.5rem;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+            <div style="width:6px;height:6px;background:#ec4899;border-radius:50%"></div>Max HR
+          </div>
+          <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+            <div style="width:6px;height:6px;background:#3b82f6;border-radius:50%"></div>Zone 2
+          </div>
+          <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+            <div style="width:6px;height:6px;background:#10b981;border-radius:50%"></div>Threshold
+          </div>
+          <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+            <div style="width:6px;height:6px;background:#ef4444;border-radius:50%"></div>VO2max
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  return volumeChart + weeklyTable + paceChart + hrChart;
 }
 
-// Paces
+// Helper: Convert pace string to seconds
+function paceToSeconds(pace) {
+  if (!pace) return 0;
+  const paceStr = String(pace);
+  if (paceStr.includes(':')) {
+    const parts = paceStr.split(':');
+    return parseInt(parts[0]) * 60 + parseInt(parts[1] || 0);
+  }
+  return 0;
+}
+
+// Helper: Convert seconds to pace string
+function secondsToPace(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Helper: Round pace to nearest 5 seconds (e.g., 4:00, 4:05, 4:10)
+function roundPaceSeconds(seconds, interval = 5) {
+  return Math.round(seconds / interval) * interval;
+}
+
+// Helper: Round HR to nearest 5 (e.g., 160, 165, 170)
+function roundHr(hr, interval = 5) {
+  return Math.round(hr / interval) * interval;
+}
+
 function renderPaces() {
-  const container = document.getElementById('paces-tab');
+  const plan = state.plans[state.activePlan];
+  const totalWeeks = plan.weeks.length;
   
-  let html = `<div class="paces-card">
-    <h3>Current Paces</h3>
-    <p>Update these as your fitness improves</p>
-    <div class="pace-input-group">
-      <label>VO2max pace <span style="color:#3C3489">→ 3:45</span></label>
-      <input type="text" id="paceVo2" value="${data.paces.vo2}" onchange="updatePace('vo2', this.value)">
-    </div>
-    <div class="pace-input-group">
-      <label>Threshold pace <span style="color:#085041">→ 4:00</span></label>
-      <input type="text" id="paceThreshold" value="${data.paces.threshold}" onchange="updatePace('threshold', this.value)">
-    </div>
-    <div class="pace-input-group">
-      <label>Easy pace <span style="color:#0C447C">→ 5:50</span></label>
-      <input type="text" id="paceEasy" value="${data.paces.easy}" onchange="updatePace('easy', this.value)">
-    </div>
-  </div>`;
+  // Initialize paceHistory with empty slots for all weeks if needed
+  if (state.paceHistory.length === 0) {
+    state.paceHistory.push({
+      week: 0,
+      vo2max: 50,
+      threshold: '4:45',
+      vo2pace: '4:20',
+      maxHr: '',
+      date: new Date().toISOString()
+    });
+  }
   
-  html += `<div class="paces-card">
-    <h3>Target Progression</h3>
-    <div class="pace-targets">
-      <div class="pace-target-row"><span>VO2max pace</span><span><strong>4:20</strong> → <strong style="color:#3C3489">3:45</strong></span></div>
-      <div class="pace-target-row"><span>Threshold pace</span><span><strong>4:45</strong> → <strong style="color:#085041">4:00</strong></span></div>
-      <div class="pace-target-row"><span>Easy pace</span><span><strong>6:30</strong> → <strong style="color:#0C447C">5:50</strong></span></div>
-      <div class="pace-target-row"><span>Race pace (10k)</span><span><strong style="color:#27500A">4:00/km</strong></span></div>
-    </div>
-  </div>`;
+  // Build progression chart from pace history
+  let progressionChart = '';
   
-  container.innerHTML = html;
+  // Get filled entries for the chart
+  const filledEntries = state.paceHistory.filter(p => p.threshold);
+  
+  if (filledEntries.length > 0) {
+    const allPaces = filledEntries.flatMap(p => {
+      const paces = [paceToSeconds(p.threshold)];
+      if (p.vo2pace) paces.push(paceToSeconds(p.vo2pace));
+      return paces;
+    }).filter(s => s > 0);
+    
+    // Include target paces in scale
+    const targetVO2 = paceToSeconds(plan.targetPaces?.vo2 || '3:45');
+    const targetThreshold = paceToSeconds(plan.targetPaces?.threshold || '4:00');
+    allPaces.push(targetVO2, targetThreshold);
+    
+    const minPace = Math.min(...allPaces) - 10;
+    const maxPace = Math.max(...allPaces) + 10;
+    
+    // Round to nearest 5 seconds for nice axis labels
+    const roundedMinPace = roundPaceSeconds(minPace, 5);
+    const roundedMaxPace = roundPaceSeconds(maxPace, 5);
+    const roundedRange = roundedMaxPace - roundedMinPace;
+    
+    const chartWidth = Math.max(totalWeeks * 14 + 60, 250);
+    const chartHeight = 180;
+    
+    // Y-axis labels (5 steps) - rounded to nearest 5 seconds
+    const ySteps = 5;
+    const yLabels = [];
+    for (let i = 0; i < ySteps; i++) {
+      const sec = roundedMinPace + Math.round((roundedRange / (ySteps - 1)) * i / 5) * 5;
+      yLabels.push(secondsToPace(sec));
+    }
+    
+    progressionChart = `
+      <div class="chart-section">
+        <div class="chart-title">Benchmark Pace Progression</div>
+        <svg viewBox="0 0 ${chartWidth} ${chartHeight}" style="width:100%;height:auto;margin-top:0.5rem">
+          <!-- Grid lines -->
+          ${yLabels.map((_, i) => {
+            const y = 20 + (i / (ySteps - 1)) * 130;
+            return `<line x1="45" y1="${y}" x2="${chartWidth - 10}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+          }).join('')}
+          
+          <!-- Target pace lines (dashed) -->
+          <line x1="45" y1="${20 + ((targetVO2 - roundedMinPace) / roundedRange) * 130}" x2="${chartWidth - 10}" y2="${20 + ((targetVO2 - roundedMinPace) / roundedRange) * 130}" stroke="#ef4444" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
+          <line x1="45" y1="${20 + ((targetThreshold - roundedMinPace) / roundedRange) * 130}" x2="${chartWidth - 10}" y2="${20 + ((targetThreshold - roundedMinPace) / roundedRange) * 130}" stroke="#10b981" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
+          
+          <!-- Y axis labels -->
+          ${yLabels.map((label, i) => {
+            const y = 24 + (i / (ySteps - 1)) * 130;
+            return `<text x="40" y="${y}" text-anchor="end" font-size="9" fill="var(--text-muted)">${label}</text>`;
+          }).join('')}
+          
+          <!-- VO2 pace line -->
+          ${filledEntries.filter(p => p.vo2pace).length > 1 ? `
+            <polyline fill="none" stroke="#ef4444" stroke-width="2" points="${filledEntries.filter(p => p.vo2pace).map(p => {
+              const x = 50 + p.week * 14;
+              const seconds = paceToSeconds(p.vo2pace);
+              const y = 20 + ((seconds - roundedMinPace) / roundedRange) * 130;
+              return `${x},${y}`;
+            }).join(' ')}"/>
+          ` : ''}
+          
+          <!-- Threshold line -->
+          ${filledEntries.length > 1 ? `
+            <polyline fill="none" stroke="#10b981" stroke-width="2" points="${filledEntries.map(p => {
+              const x = 50 + p.week * 14;
+              const seconds = paceToSeconds(p.threshold);
+              const y = 20 + ((seconds - roundedMinPace) / roundedRange) * 130;
+              return `${x},${y}`;
+            }).join(' ')}"/>
+          ` : ''}
+          
+          <!-- VO2 pace points -->
+          ${filledEntries.filter(p => p.vo2pace).map(p => {
+            const x = 50 + p.week * 14;
+            const seconds = paceToSeconds(p.vo2pace);
+            const y = 20 + ((seconds - roundedMinPace) / roundedRange) * 130;
+            return `<circle cx="${x}" cy="${y}" r="4" fill="#ef4444"/>`;
+          }).join('')}
+          
+          <!-- Threshold points -->
+          ${filledEntries.map(p => {
+            const x = 50 + p.week * 14;
+            const seconds = paceToSeconds(p.threshold);
+            const y = 20 + ((seconds - roundedMinPace) / roundedRange) * 130;
+            return `<circle cx="${x}" cy="${y}" r="4" fill="#10b981"/>`;
+          }).join('')}
+          
+          <!-- X axis labels (every 4 weeks) -->
+          ${[0, 4, 8, 12, 16, 20, 23].filter(w => w < totalWeeks).map(w => {
+            const x = 50 + w * 14;
+            return `<text x="${x}" y="${chartHeight - 8}" text-anchor="middle" font-size="8" fill="var(--text-muted)">${w.toString().padStart(2, '0')}</text>`;
+          }).join('')}
+        </svg>
+        <div style="display:flex;gap:0.75rem;justify-content:center;margin-top:0.5rem;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+            <div style="width:6px;height:6px;background:#ef4444;border-radius:50%"></div>VO2max
+          </div>
+          <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+            <div style="width:6px;height:6px;background:#10b981;border-radius:50%"></div>Threshold
+          </div>
+          <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
+            <span style="width:10px;border-top:1px dashed #888"></span>Target
+          </div>
+        </div>
+      </div>
+    `;
+  } else {
+    progressionChart = `
+      <div class="chart-section">
+        <div class="chart-title">Benchmark Pace Progression</div>
+        <div style="text-align:center;padding:1.5rem;color:var(--text-muted)">
+          <div style="font-size:1.2rem;margin-bottom:0.5rem">📈</div>
+          <div style="font-size:0.75rem">Enter your Garmin benchmark paces below to track progression</div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Current vs Target section
+  const latestPaces = filledEntries.length > 0 ? filledEntries[filledEntries.length - 1] : { vo2pace: '-', threshold: '-', vo2max: '-', maxHr: '-' };
+  const currentVsTarget = `
+    <div class="chart-section">
+      <div class="chart-title">Current vs Target</div>
+      <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);margin-top:0.75rem">
+        <div class="stats-card">
+          <div class="label">VO2max pace</div>
+          <div class="value" style="color:#ef4444">${latestPaces.vo2pace || '-'}</div>
+          <div class="sub">→ ${plan.targetPaces?.vo2 || '3:45'}</div>
+        </div>
+        <div class="stats-card">
+          <div class="label">Threshold</div>
+          <div class="value" style="color:#10b981">${latestPaces.threshold || '-'}</div>
+          <div class="sub">→ ${plan.targetPaces?.threshold || '4:00'}</div>
+        </div>
+      </div>
+      <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);margin-top:0.5rem">
+        <div class="stats-card">
+          <div class="label">VO2max</div>
+          <div class="value" style="color:#f59e0b">${latestPaces.vo2max || '-'}</div>
+          <div class="sub">ml/kg/min</div>
+        </div>
+        <div class="stats-card">
+          <div class="label">Max HR</div>
+          <div class="value" style="color:#ec4899">${latestPaces.maxHr || '-'}</div>
+          <div class="sub">bpm</div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Week rows for entering benchmark paces
+  const currentWeek = getCurrentWeek();
+  const currentWeekNum = currentWeek?.week ? currentWeek.week - 1 : 0;
+  
+  let weekRows = `
+    <div class="chart-section">
+      <div class="chart-title">Weekly Benchmarks</div>
+      <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:0.75rem">Tap a week to enter Garmin estimates</div>
+  `;
+  
+  for (let w = 0; w < totalWeeks; w++) {
+    const weekData = plan.weeks[w];
+    const entry = state.paceHistory.find(p => p.week === w);
+    const hasData = entry?.threshold;
+    const isCurrent = w === currentWeekNum;
+    const isExpanded = state.expandedPaceWeek === w;
+    
+    weekRows += `
+      <div class="pace-week-card ${isCurrent ? 'current' : ''} ${isExpanded ? 'expanded' : ''}" data-pace-week="${w}">
+        <div class="pace-week-header">
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <span style="font-weight:600;font-size:0.8rem">[${w.toString().padStart(2, '0')}]</span>
+            <span style="font-size:0.65rem;color:var(--text-muted)">KW${weekData?.kw || ''}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            ${hasData ? `
+              <span style="font-size:0.65rem;color:#f59e0b">${entry.vo2max || '-'}</span>
+              <span style="font-size:0.65rem;color:#ef4444">${entry.vo2pace || '-'}</span>
+              <span style="font-size:0.65rem;color:var(--text-muted)">/</span>
+              <span style="font-size:0.65rem;color:#10b981">${entry.threshold}</span>
+              ${entry.maxHr ? `<span style="font-size:0.65rem;color:#ec4899">${entry.maxHr}</span>` : ''}
+            ` : `
+              <span style="font-size:0.65rem;color:var(--text-muted)">—</span>
+            `}
+            <span style="font-size:0.8rem;color:var(--text-muted);transform:${isExpanded ? 'rotate(180deg)' : 'none'};transition:transform 0.2s">▼</span>
+          </div>
+        </div>
+        ${isExpanded ? `
+          <div class="pace-week-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem">
+              <div>
+                <label style="font-size:0.7rem;color:var(--text-muted);display:block;margin-bottom:0.25rem">VO2max (ml/kg/min)</label>
+                <input type="text" class="form-input" id="paceWeekVo2max" value="${entry?.vo2max || ''}" placeholder="50">
+              </div>
+              <div>
+                <label style="font-size:0.7rem;color:var(--text-muted);display:block;margin-bottom:0.25rem">LT pace (Garmin)</label>
+                <input type="text" class="form-input" id="paceWeekThreshold" value="${entry?.threshold || ''}" placeholder="4:45">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem">
+              <div>
+                <label style="font-size:0.7rem;color:var(--text-muted);display:block;margin-bottom:0.25rem">VO2max pace (calc)</label>
+                <input type="text" class="form-input" id="paceWeekVo2pace" value="${entry?.vo2pace || ''}" placeholder="auto" readonly style="background:var(--bg);color:var(--text-muted)">
+              </div>
+              <div>
+                <label style="font-size:0.7rem;color:var(--text-muted);display:block;margin-bottom:0.25rem">Max HR (bpm)</label>
+                <input type="text" class="form-input" id="paceWeekMaxHr" value="${entry?.maxHr || ''}" placeholder="192">
+              </div>
+            </div>
+            <div style="display:flex;gap:0.5rem">
+              ${hasData ? `<button class="btn btn-danger" style="flex:1" onclick="deletePaceEntry(${w})">Delete</button>` : ''}
+              <button class="btn btn-primary" style="flex:2" onclick="savePaceEntry(${w})">Save</button>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+  
+  weekRows += `</div>`;
+  
+  return currentVsTarget + progressionChart + weekRows;
 }
 
-function updatePace(type, value) {
-  data.paces[type] = value;
-  saveData();
-  updateUI();
+// Calculate VO2max pace by combining VDOT table and LT-derived approaches
+function calculateVo2Pace(vo2max, ltPace) {
+  const ltSeconds = paceToSeconds(ltPace);
+  if (!ltSeconds) return null;
+  
+  // Method 1: LT-derived (17 seconds faster than LT)
+  const ltDerived = ltSeconds - 17;
+  
+  // Method 2: VDOT table lookup (if VO2max provided)
+  // Based on Daniels tables:
+  // VO2max 45 = ~4:33 (273s), 48 = ~4:20 (260s), 50 = ~4:12 (252s)
+  // 51 = ~4:08 (248s), 52 = ~4:04 (244s), 55 = ~3:52 (232s), 58 = ~3:42 (222s)
+  let vdotDerived = null;
+  if (vo2max) {
+    const vo2num = parseFloat(vo2max);
+    if (vo2num >= 40 && vo2num <= 70) {
+      // More accurate formula: base 290s at VO2max 42, drops ~4s per VO2max point
+      vdotDerived = Math.round(298 - (vo2num - 42) * 4.2);
+    }
+  }
+  
+  // Combine: average of both methods if VDOT available, otherwise just LT-derived
+  let vo2Seconds;
+  if (vdotDerived) {
+    vo2Seconds = Math.round((ltDerived + vdotDerived) / 2);
+  } else {
+    vo2Seconds = ltDerived;
+  }
+  
+  const mins = Math.floor(vo2Seconds / 60);
+  const secs = vo2Seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Modal
-function openModal(sessionId) {
-  const session = findSession(sessionId);
+// Save pace entry for a specific week
+async function savePaceEntry(week) {
+  const vo2max = document.getElementById('paceWeekVo2max').value;
+  const threshold = document.getElementById('paceWeekThreshold').value;
+  const maxHr = document.getElementById('paceWeekMaxHr').value;
+  
+  if (!threshold) {
+    alert('Please enter at least the LT pace');
+    return;
+  }
+  
+  // Calculate VO2 pace from LT pace and VO2max number
+  const vo2pace = calculateVo2Pace(vo2max, threshold);
+  
+  const existingIdx = state.paceHistory.findIndex(p => p.week === week);
+  const entry = {
+    week: week,
+    vo2max: vo2max || null,
+    vo2pace: vo2pace,
+    threshold: threshold,
+    maxHr: maxHr || null,
+    date: new Date().toISOString()
+  };
+  
+  if (existingIdx >= 0) {
+    state.paceHistory[existingIdx] = entry;
+  } else {
+    state.paceHistory.push(entry);
+    state.paceHistory.sort((a, b) => a.week - b.week);
+  }
+  
+  // Update current paces to latest entry
+  const latest = state.paceHistory[state.paceHistory.length - 1];
+  state.paces.vo2 = latest.vo2pace || state.paces.vo2;
+  state.paces.threshold = latest.threshold;
+  
+  state.expandedPaceWeek = null;
+  await saveToGist();
+  render();
+}
+
+// Delete pace entry for a specific week
+async function deletePaceEntry(week) {
+  const idx = state.paceHistory.findIndex(p => p.week === week);
+  if (idx >= 0) {
+    state.paceHistory.splice(idx, 1);
+    
+    // Update current paces to latest remaining entry
+    if (state.paceHistory.length > 0) {
+      const latest = state.paceHistory[state.paceHistory.length - 1];
+      state.paces.vo2 = latest.vo2pace || state.paces.vo2;
+      state.paces.threshold = latest.threshold;
+    }
+    
+    state.expandedPaceWeek = null;
+    await saveToGist();
+    render();
+  }
+}
+
+function getPhaseColor(phase) {
+  const colors = {
+    base: '#3b82f6', build: '#8b5cf6', threshold: '#10b981',
+    vo2max: '#f59e0b', 'race-specific': '#ef4444', taper: '#ec4899',
+    race: '#22c55e', recovery: '#6b7280', vacation: '#64748b'
+  };
+  return colors[phase] || '#6b7280';
+}
+
+// Event Listeners
+function attachEventListeners() {
+  // Plan dropdown
+  const planDropdown = document.getElementById('planDropdown');
+  if (planDropdown) {
+    planDropdown.addEventListener('change', (e) => {
+      state.activePlan = e.target.value;
+      state.expandedWeek = null; // Reset expanded week when switching plans
+      render();
+    });
+  }
+  
+  // Nav tabs
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.activeTab = btn.dataset.tab;
+      render();
+    });
+  });
+  
+  // Week expansion
+  document.querySelectorAll('.week-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const kw = parseInt(header.parentElement.dataset.kw);
+      state.expandedWeek = state.expandedWeek === kw ? null : kw;
+      render();
+    });
+  });
+  
+  // Session click (open modal)
+  document.querySelectorAll('.session').forEach(session => {
+    session.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openSessionModal(session.dataset.id);
+    });
+  });
+  
+  // Pace week expansion
+  document.querySelectorAll('.pace-week-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const week = parseInt(header.parentElement.dataset.paceWeek);
+      state.expandedPaceWeek = state.expandedPaceWeek === week ? null : week;
+      render();
+    });
+  });
+  
+  // Expandable sections (stats tab)
+  document.querySelectorAll('.expandable-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const section = header.parentElement;
+      const content = section.querySelector('.expandable-content');
+      const icon = header.querySelector('.expand-icon');
+      const isExpanded = content.style.display !== 'none';
+      
+      content.style.display = isExpanded ? 'none' : 'block';
+      icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+    });
+  });
+}
+
+// Modal Functions
+function openSessionModal(sessionId) {
+  const plan = state.plans[state.activePlan];
+  let session = null;
+  
+  for (const week of plan.weeks) {
+    session = week.sessions?.find(s => s.id === sessionId);
+    if (session) break;
+  }
+  
   if (!session) return;
   
-  editingSession = session;
-  const log = data.sessions[sessionId];
+  const log = getSessionData(sessionId) || {};
   
-  document.getElementById('modalPlanned').textContent = session.planned;
-  document.getElementById('inputDistance').value = log?.distance || '';
-  document.getElementById('inputPace').value = log?.pace || '';
-  document.getElementById('inputTime').value = log?.time || '';
-  document.getElementById('inputHR').value = log?.hr || '';
-  document.getElementById('inputNotes').value = log?.notes || '';
-  document.getElementById('btnDelete').style.display = log ? 'block' : 'none';
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">Log Workout</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-planned">${session.planned}</div>
+    
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <div class="status-btns">
+        <button class="status-btn ${log.status === 'completed' ? 'active' : ''}" data-status="completed">Completed</button>
+        <button class="status-btn ${log.status === 'modified' ? 'active' : ''}" data-status="modified">Modified</button>
+        <button class="status-btn ${log.status === 'skipped' ? 'active' : ''}" data-status="skipped">Skipped</button>
+      </div>
+    </div>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Distance (km)</label>
+        <input type="text" class="form-input" id="modalDistance" value="${log.distance || ''}" placeholder="10.50">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Avg Pace</label>
+        <input type="text" class="form-input" id="modalPace" value="${log.pace || ''}" placeholder="4:35">
+      </div>
+    </div>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Time (h:mm:ss)</label>
+        <input type="text" class="form-input" id="modalTime" value="${formatTimeInput(log.time)}" placeholder="0:45:30">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Avg HR</label>
+        <input type="text" class="form-input" id="modalHr" value="${log.hr || ''}" placeholder="165">
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="modalNotes" placeholder="How did it feel?">${log.notes || ''}</textarea>
+    </div>
+    
+    <div class="modal-actions">
+      ${log.status ? '<button class="btn btn-danger" onclick="deleteSession(\'' + sessionId + '\')">Delete</button>' : ''}
+      <button class="btn btn-primary" onclick="saveSession('${sessionId}')">Save</button>
+    </div>
+  `;
   
-  formStatus = log?.status || 'completed';
-  renderStatusButtons();
+  document.getElementById('modalOverlay').classList.add('active');
   
-  document.getElementById('modal').classList.add('open');
+  // Status button listeners
+  modal.querySelectorAll('.status-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      modal.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
 }
 
 function closeModal() {
-  document.getElementById('modal').classList.remove('open');
-  editingSession = null;
+  document.getElementById('modalOverlay').classList.remove('active');
 }
 
-function renderStatusButtons() {
-  const container = document.getElementById('statusButtons');
-  container.innerHTML = ['completed','modified','skipped'].map(s => 
-    `<button class="status-btn${formStatus===s?' active':''}" onclick="setStatus('${s}')">${s}</button>`
-  ).join('');
-}
-
-function setStatus(s) {
-  formStatus = s;
-  renderStatusButtons();
-}
-
-function saveLog() {
-  if (!editingSession) return;
+async function saveSession(sessionId) {
+  const modal = document.getElementById('modal');
+  const status = modal.querySelector('.status-btn.active')?.dataset.status || 'completed';
   
-  data.sessions[editingSession.id] = {
-    status: formStatus,
-    distance: document.getElementById('inputDistance').value,
-    pace: document.getElementById('inputPace').value,
-    time: document.getElementById('inputTime').value,
-    hr: document.getElementById('inputHR').value,
-    notes: document.getElementById('inputNotes').value,
-    loggedAt: new Date().toISOString()
+  const timeInput = document.getElementById('modalTime').value;
+  const parsedTime = parseTimeInput(timeInput);
+  
+  state.sessions[sessionId] = {
+    status,
+    distance: document.getElementById('modalDistance').value,
+    pace: document.getElementById('modalPace').value,
+    time: parsedTime,
+    hr: document.getElementById('modalHr').value,
+    notes: document.getElementById('modalNotes').value
   };
   
-  saveData();
+  await saveToGist();
   closeModal();
-  updateUI();
+  render();
 }
 
-function deleteLog() {
-  if (!editingSession) return;
-  delete data.sessions[editingSession.id];
-  saveData();
+async function deleteSession(sessionId) {
+  delete state.sessions[sessionId];
+  await saveToGist();
   closeModal();
-  updateUI();
+  render();
 }
 
-function findSession(id) {
-  for (const w of WEEKS) {
-    for (const s of w.sessions) {
-      if (s.id === id) return s;
-    }
-  }
-  return null;
-}
-
-// Tab navigation
-document.querySelectorAll('.nav button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentTab = btn.dataset.tab;
-    
-    document.getElementById('timeline-tab').style.display = currentTab === 'timeline' ? 'block' : 'none';
-    document.getElementById('charts-tab').style.display = currentTab === 'charts' ? 'block' : 'none';
-    document.getElementById('stats-tab').style.display = currentTab === 'stats' ? 'block' : 'none';
-    document.getElementById('paces-tab').style.display = currentTab === 'paces' ? 'block' : 'none';
-  });
+// Close modal on overlay click
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
 });
 
-// Manual export button (for syncing to iCloud)
-function manualExport() {
-  document.getElementById('exportLink').click();
+// Initialize
+async function init() {
+  await loadFromGist();
+  
+  // Set expanded week to current
+  const currentKw = getISOWeek(new Date());
+  state.expandedWeek = currentKw;
+  
+  render();
 }
 
-// Init
-loadData();
+init();
 </script>
-</body>
 </html>
