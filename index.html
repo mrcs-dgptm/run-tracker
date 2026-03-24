@@ -259,6 +259,12 @@
     .sync-dot.syncing { background: #f59e0b; animation: pulse 1s infinite; }
     .sync-dot.error { background: #ef4444; }
     .sync-dot.readonly { background: #6b7280; }
+    .export-btn {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.7rem;
+      cursor: pointer; margin-right: 0.5rem;
+    }
+    .export-btn:active { background: var(--border); }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     
     /* Phase Colors */
@@ -303,6 +309,7 @@
     <div class="modal" id="modal"></div>
   </div>
   <div class="sync-status" id="syncStatus">
+    <button class="export-btn" onclick="exportData()" title="Export for Claude">📊</button>
     <div class="sync-dot synced"></div>
     <span>Synced</span>
   </div>
@@ -931,6 +938,27 @@ function showTokenPrompt(message = '') {
   `;
   document.body.appendChild(modal);
   document.getElementById('tokenInput').focus();
+}
+
+// Export data for Claude analysis
+function exportData() {
+  const data = {
+    activePlan: state.activePlan,
+    sessions: state.sessions,
+    paces: state.paces,
+    paceHistory: state.paceHistory,
+    exportDate: new Date().toISOString()
+  };
+  
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'training_data.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 async function submitToken() {
