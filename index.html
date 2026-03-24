@@ -258,6 +258,7 @@
     .sync-dot.synced { background: var(--accent); }
     .sync-dot.syncing { background: #f59e0b; animation: pulse 1s infinite; }
     .sync-dot.error { background: #ef4444; }
+    .sync-dot.readonly { background: #6b7280; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     
     /* Phase Colors */
@@ -775,7 +776,23 @@ const tenKPlan = {
 
 // Gist Configuration
 const GIST_ID = '69ad7722fb409db302c4220c13c074c3';
-const GITHUB_TOKEN = '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';
+
+// Token management - stored in localStorage, not in code
+function getToken() {
+  return localStorage.getItem('tracker_github_token');
+}
+
+function setToken(token) {
+  localStorage.setItem('tracker_github_token', token);
+}
+
+function clearToken() {
+  localStorage.removeItem('tracker_github_token');
+}
+
+function hasToken() {
+  return !!getToken();
+}
 
 // App State
 let state = {
@@ -810,9 +827,8 @@ async function loadFromGist() {
     state.syncStatus = 'syncing';
     updateSyncStatus();
     
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      headers: { 'Authorization': `token ${GITHUB_TOKEN}` }
-    });
+    // Load is public - no token needed for reading public gists
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
     
     if (res.ok) {
       const gist = await res.json();
@@ -834,7 +850,7 @@ async function loadFromGist() {
         });
       }
       
-      state.syncStatus = 'synced';
+      state.syncStatus = hasToken() ? 'synced' : 'readonly';
     } else {
       state.syncStatus = 'error';
     }
@@ -846,6 +862,14 @@ async function loadFromGist() {
 }
 
 async function saveToGist() {
+  // Check for token before saving
+  if (!hasToken()) {
+    state.syncStatus = 'readonly';
+    updateSyncStatus();
+    showTokenPrompt();
+    return false;
+  }
+  
   try {
     state.syncStatus = 'syncing';
     updateSyncStatus();
@@ -861,7 +885,7 @@ async function saveToGist() {
     const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
       method: 'PATCH',
       headers: {
-        'Authorization': `token ${GITHUB_TOKEN}`,
+        'Authorization': `token ${getToken()}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -869,12 +893,63 @@ async function saveToGist() {
       })
     });
     
-    state.syncStatus = res.ok ? 'synced' : 'error';
+    if (res.ok) {
+      state.syncStatus = 'synced';
+    } else if (res.status === 401) {
+      clearToken();
+      state.syncStatus = 'readonly';
+      showTokenPrompt('Invalid token. Please re-enter.');
+    } else {
+      state.syncStatus = 'error';
+    }
   } catch (e) {
     console.error('Save error:', e);
     state.syncStatus = 'error';
   }
   updateSyncStatus();
+  return state.syncStatus === 'synced';
+}
+
+// Token prompt modal
+function showTokenPrompt(message = '') {
+  const modal = document.createElement('div');
+  modal.id = 'tokenModal';
+  modal.innerHTML = `
+    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem">
+      <div style="background:var(--surface);border-radius:12px;padding:1.5rem;max-width:360px;width:100%">
+        <h3 style="margin:0 0 0.5rem;font-size:1rem">🔐 Enter Token to Save</h3>
+        <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 1rem">
+          ${message || 'A GitHub token is required to save changes. You only need to do this once per device.'}
+        </p>
+        <input type="password" id="tokenInput" placeholder="ghp_..." style="width:100%;padding:0.75rem;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;margin-bottom:1rem;box-sizing:border-box">
+        <div style="display:flex;gap:0.5rem">
+          <button onclick="document.getElementById('tokenModal').remove()" style="flex:1;padding:0.75rem;border:1px solid var(--border);background:var(--surface);border-radius:8px;cursor:pointer">Cancel</button>
+          <button onclick="submitToken()" style="flex:1;padding:0.75rem;border:none;background:var(--accent);color:white;border-radius:8px;cursor:pointer">Save Token</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  document.getElementById('tokenInput').focus();
+}
+
+async function submitToken() {
+  const input = document.getElementById('tokenInput');
+  const token = input.value.trim();
+  
+  if (!token.startsWith('ghp_')) {
+    alert('Token should start with ghp_');
+    return;
+  }
+  
+  setToken(token);
+  document.getElementById('tokenModal').remove();
+  
+  // Try saving again
+  const success = await saveToGist();
+  if (success) {
+    render();
+  }
 }
 
 function updateSyncStatus() {
@@ -883,8 +958,13 @@ function updateSyncStatus() {
   const text = el.querySelector('span');
   
   dot.className = 'sync-dot ' + state.syncStatus;
-  text.textContent = state.syncStatus === 'syncing' ? 'Syncing...' : 
-                     state.syncStatus === 'error' ? 'Sync error' : 'Synced';
+  const labels = {
+    syncing: 'Syncing...',
+    synced: 'Synced',
+    error: 'Sync error',
+    readonly: '👁 View only'
+  };
+  text.textContent = labels[state.syncStatus] || state.syncStatus;
 }
 
 // Get session data (from pre-logged HM data or Gist)
