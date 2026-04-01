@@ -1130,9 +1130,22 @@ function getWeeksToRace(planId = null) {
 
 // Render Functions
 function render() {
-  const app = document.getElementById('app');
-  app.innerHTML = renderHeader() + renderNav() + renderContent();
-  attachEventListeners();
+  try {
+    const app = document.getElementById('app');
+    app.innerHTML = renderHeader() + renderNav() + renderContent();
+    attachEventListeners();
+  } catch (error) {
+    console.error('Render error:', error);
+    document.getElementById('app').innerHTML = `
+      <div style="padding:2rem;text-align:center;color:#ef4444">
+        <h2>Render Error</h2>
+        <p style="margin-top:1rem;color:#999">${error.message}</p>
+        <button onclick="location.reload()" style="margin-top:1rem;padding:0.75rem 1.5rem;background:#22c55e;color:white;border:none;border-radius:8px;cursor:pointer">
+          Reload App
+        </button>
+      </div>
+    `;
+  }
 }
 
 function renderHeader() {
@@ -1550,7 +1563,7 @@ function renderStats() {
     z2: [],    // Zone 2 / Easy runs
     threshold: [], // Threshold runs
     vo2: [],   // VO2max intervals
-    maxHr: []  // Max HR from paceHistory benchmarks
+    maxHr: []  // LT HR from paceHistory benchmarks
   };
   
   plan.weeks.forEach((week, idx) => {
@@ -1632,7 +1645,7 @@ function renderStats() {
             return `<text x="40" y="${y}" text-anchor="end" font-size="9" fill="var(--text-muted)">${label}</text>`;
           }).join('')}
           
-          <!-- Max HR line (pink, dashed) -->
+          <!-- LT HR line (pink, dashed) -->
           ${hrData.maxHr.length > 1 ? `
             <polyline fill="none" stroke="#ec4899" stroke-width="2" stroke-dasharray="4,2" points="${hrData.maxHr.map(d => {
               const x = 50 + d.week * 14;
@@ -1668,7 +1681,7 @@ function renderStats() {
             }).join(' ')}"/>
           ` : ''}
           
-          <!-- Max HR points -->
+          <!-- LT HR points -->
           ${hrData.maxHr.map(d => {
             const x = 50 + d.week * 14;
             const y = 20 + ((roundedMaxHr - d.hr) / roundedRange) * 110;
@@ -1704,7 +1717,7 @@ function renderStats() {
         </svg>
         <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:0.5rem;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
-            <div style="width:6px;height:6px;background:#ec4899;border-radius:50%"></div>Max HR
+            <div style="width:6px;height:6px;background:#ec4899;border-radius:50%"></div>LT HR
           </div>
           <div style="display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--text-muted)">
             <div style="width:6px;height:6px;background:#3b82f6;border-radius:50%"></div>Zone 2
@@ -1915,7 +1928,7 @@ function renderPaces() {
           <div class="sub">ml/kg/min</div>
         </div>
         <div class="stats-card">
-          <div class="label">Max HR</div>
+          <div class="label">LT HR</div>
           <div class="value" style="color:#ec4899">${latestPaces.maxHr || '-'}</div>
           <div class="sub">bpm</div>
         </div>
@@ -1978,8 +1991,8 @@ function renderPaces() {
                 <input type="text" class="form-input" id="paceWeekVo2pace" value="${entry?.vo2pace || ''}" placeholder="auto" readonly style="background:var(--bg);color:var(--text-muted)">
               </div>
               <div>
-                <label style="font-size:0.7rem;color:var(--text-muted);display:block;margin-bottom:0.25rem">Max HR (bpm)</label>
-                <input type="text" class="form-input" id="paceWeekMaxHr" value="${entry?.maxHr || ''}" placeholder="192">
+                <label style="font-size:0.7rem;color:var(--text-muted);display:block;margin-bottom:0.25rem">LT HR (bpm)</label>
+                <input type="text" class="form-input" id="paceWeekMaxHr" value="${entry?.maxHr || ''}" placeholder="177">
               </div>
             </div>
             <div style="display:flex;gap:0.5rem">
@@ -2240,24 +2253,37 @@ function closeModal() {
 }
 
 async function saveSession(sessionId) {
-  const modal = document.getElementById('modal');
-  const status = modal.querySelector('.status-btn.active')?.dataset.status || 'completed';
-  
-  const timeInput = document.getElementById('modalTime').value;
-  const parsedTime = parseTimeInput(timeInput);
-  
-  state.sessions[sessionId] = {
-    status,
-    distance: document.getElementById('modalDistance').value,
-    pace: document.getElementById('modalPace').value,
-    time: parsedTime,
-    hr: document.getElementById('modalHr').value,
-    notes: document.getElementById('modalNotes').value
-  };
-  
-  await saveToGist();
-  closeModal();
-  render();
+  try {
+    const modal = document.getElementById('modal');
+    const status = modal.querySelector('.status-btn.active')?.dataset.status || 'completed';
+    
+    const timeInput = document.getElementById('modalTime').value;
+    const parsedTime = parseTimeInput(timeInput);
+    
+    // Validate parsed time
+    if (timeInput && !parsedTime && parsedTime !== 0) {
+      alert('Invalid time format. Use h:mm:ss (e.g., 0:37:43)');
+      return;
+    }
+    
+    state.sessions[sessionId] = {
+      status,
+      distance: document.getElementById('modalDistance').value,
+      pace: document.getElementById('modalPace').value,
+      time: parsedTime,
+      hr: document.getElementById('modalHr').value,
+      notes: document.getElementById('modalNotes').value
+    };
+    
+    const success = await saveToGist();
+    if (success || !hasToken()) {
+      closeModal();
+      render();
+    }
+  } catch (error) {
+    console.error('Save error:', error);
+    alert('Failed to save session. Check console for details.');
+  }
 }
 
 async function deleteSession(sessionId) {
