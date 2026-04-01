@@ -1018,7 +1018,10 @@ function getWeekStats(week) {
     if (log?.distance) distance += parseFloat(log.distance) || 0;
     if (log?.time) {
       const t = log.time;
-      if (t.includes(':')) {
+      // Handle both number (parsed) and string (legacy) formats
+      if (typeof t === 'number') {
+        time += t;
+      } else if (typeof t === 'string' && t.includes(':')) {
         const parts = t.split(':');
         time += parseInt(parts[0]) + (parseInt(parts[1]) || 0) / 60;
       } else {
